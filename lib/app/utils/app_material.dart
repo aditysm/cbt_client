@@ -76,7 +76,7 @@ abstract class AllMaterial {
   }
 
   static Future<void> exitApp({bool fromUjian = false}) async {
-    String storedKeyword = box.read('unlock_key') ?? "cbtsmkn2mtr";
+    String storedKeyword = box.read('unlock_key') ?? "12345678";
 
     String typedValue = "";
 

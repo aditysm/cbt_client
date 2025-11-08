@@ -32,8 +32,8 @@ class ConfigView extends GetView<ConfigController> {
       controller.userC.text = user;
       controller.passC.text = password;
       controller.dbNameC.text = dbName;
-      controller.settingPassC.text = box.read('setting_pass') ?? 'cbtsmkn2mtr';
-      controller.unlockKeyC.text = box.read('unlock_key') ?? 'cbtsmkn2mtr';
+      controller.settingPassC.text = box.read('setting_pass') ?? '12345678';
+      controller.unlockKeyC.text = box.read('unlock_key') ?? '12345678';
       controller.isLoadingFirst.value = true;
     }
     controller.isTesting.value = false;

@@ -29,7 +29,6 @@ void main() async {
   Get.putAsync<DatabaseService>(() async => DatabaseService(), permanent: true);
   Get.put(VolumeNativeController(), permanent: true);
   await KioskHelper.enableKioskMode();
-
   if (AllMaterial.isDesktop) {
     await windowManager.ensureInitialized();
 

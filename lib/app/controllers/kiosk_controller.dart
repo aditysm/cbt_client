@@ -46,12 +46,10 @@ class KioskHelper {
   static Future<void> _enableDesktopKiosk() async {
     if (Platform.isWindows) {
       await Process.run("taskkill", ["/F", "/IM", "explorer.exe"]);
-
       await windowManager.setFullScreen(true);
       await windowManager.setResizable(false);
       await windowManager.setClosable(false);
       await windowManager.focus();
-
       await _blockSystemKeys();
     } else {
       await windowManager.setFullScreen(true);
@@ -102,7 +100,19 @@ reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer" /v NoWinKeys /f
       }
     } else if (Platform.isIOS) {
       try {
-        await _channel.invokeMethod('enableGuidedAccess');
+        final isActive = await _channel.invokeMethod('isGuidedAccessEnabled');
+        if (isActive == false) {
+          print("🕹️ Mencoba mengaktifkan Guided Access...");
+          final success = await _channel.invokeMethod('enableGuidedAccess');
+          if (success == true) {
+            print("✅ Guided Access aktif");
+          } else {
+            print(
+                "⚠️ Gagal aktifkan Guided Access. Coba aktifkan manual di Settings > Accessibility > Guided Access.");
+          }
+        } else {
+          print("✅ Guided Access sudah aktif");
+        }
       } catch (e) {
         print("⚠️ Native iOS gagal: $e");
       }
