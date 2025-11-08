@@ -36,6 +36,8 @@ class ExamRoomView extends GetView<ExamRoomController> {
     final GlobalKey<PopupMenuButtonState<String>> menuKey =
         GlobalKey<PopupMenuButtonState<String>>();
 
+    final roomScroll = ScrollController();
+
     return Obx(
       () {
         final dataSoal = ExamConfirmationController.detilSoalUjian;
@@ -467,33 +469,40 @@ class ExamRoomView extends GetView<ExamRoomController> {
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        ElevatedButton.icon(
-                                          onPressed: controller.semuaTerjawab()
-                                              ? () {
-                                                  controller.confirmEndExam();
-                                                }
-                                              : null,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                Colors.green.shade700,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 14),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
+                                        Padding(
+                                          padding: EdgeInsets.symmetric(
+                                              vertical: 8, horizontal: 4),
+                                          child: ElevatedButton.icon(
+                                            onPressed: controller
+                                                    .semuaTerjawab()
+                                                ? () {
+                                                    controller.confirmEndExam();
+                                                  }
+                                                : null,
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  Colors.green.shade700,
+                                              foregroundColor: Colors.white,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 14),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              elevation: 0,
                                             ),
-                                            elevation: 0,
-                                          ),
-                                          icon: const Icon(
-                                              Icons.check_circle_outline,
-                                              size: 20),
-                                          label: const Text(
-                                            "Akhiri Ujian",
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
+                                            icon: const Icon(
+                                                Icons.check_circle_outline,
+                                                size: 20),
+                                            label: const Text(
+                                              "Akhiri Ujian",
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -667,15 +676,20 @@ class ExamRoomView extends GetView<ExamRoomController> {
                                 ],
                               ),
                               Expanded(
-                                child: SingleChildScrollView(
-                                  child: Column(
-                                    children: [
-                                      _buildQuestionArea(
-                                          theme,
-                                          isDesktop,
-                                          dataSoal[
-                                              controller.currentIndex.value]),
-                                    ],
+                                child: Scrollbar(
+                                  thumbVisibility: true,
+                                  controller: roomScroll,
+                                  child: SingleChildScrollView(
+                                    controller: roomScroll,
+                                    child: Column(
+                                      children: [
+                                        _buildQuestionArea(
+                                            theme,
+                                            isDesktop,
+                                            dataSoal[
+                                                controller.currentIndex.value]),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),

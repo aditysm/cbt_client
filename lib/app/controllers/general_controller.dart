@@ -1,3 +1,4 @@
+import 'package:aplikasi_cbt/app/modules/exam_confirmation/controllers/exam_confirmation_controller.dart';
 import 'package:aplikasi_cbt/app/modules/login/controllers/login_controller.dart';
 import 'package:aplikasi_cbt/app/modules/login/views/login_view.dart';
 import 'package:aplikasi_cbt/app/utils/app_material.dart';
@@ -11,13 +12,7 @@ class GeneralController extends GetxController {
       Get.back();
       Get.offAll(() => LoginView());
 
-      Future.microtask(
-        () {
-          AllMaterial.role.value = "";
-          LoginController.infoLogin.value = null;
-          LoginController.dataUjian.value = null;
-        },
-      );
+      await clearSession();
     } else {
       AllMaterial.cusDialogValidasi(
         title: "Logout",
@@ -27,19 +22,24 @@ class GeneralController extends GetxController {
         onCancel: () async {
           await Future.delayed(const Duration(milliseconds: 400));
           Get.back();
-
+          await clearSession();
           Get.offAll(() => LoginView());
-          Future.microtask(
-            () {
-              AllMaterial.role.value = "";
-              LoginController.infoLogin.value = null;
-              LoginController.dataUjian.value = null;
-            },
-          );
+
           ToastService.show("Logout berhasil, Sampai jumpa!");
         },
         onConfirm: () => Get.back(),
       );
     }
+  }
+
+  static Future<void> clearSession() async {
+    await Future.microtask(
+      () {
+        AllMaterial.role.value = "";
+        LoginController.infoLogin.value = null;
+        LoginController.dataUjian.value = null;
+        ExamConfirmationController.detilSoalUjian.clear();
+      },
+    );
   }
 }

@@ -22,14 +22,18 @@ class ConfigView extends GetView<ConfigController> {
     var box = controller.box;
     if (controller.isLoadingFirst.isFalse) {
       controller.serverNameC.text = box.read('db_server_name') ?? '';
-      controller.hostC.text =
-          box.read('db_host') ?? AllMaterial.getDefaultDbHost();
-      controller.port.value = box.read('db_port') ?? 3307;
-      controller.userC.text = box.read('db_user') ?? '';
-      controller.passC.text = box.read('db_pass') ?? '';
-      controller.dbNameC.text = box.read('db_name') ?? '';
-      controller.settingPassC.text = box.read('setting_pass') ?? '';
-      controller.unlockKeyC.text = box.read('unlock_key') ?? '';
+      final host = box.read('db_host') ?? "192.100.0.254";
+      final port = box.read('db_port') ?? 3306;
+      final user = box.read('db_user') ?? 'cbtclient';
+      final password = box.read('db_pass') ?? '12345678@CBTclient';
+      final dbName = box.read('db_name') ?? 'dbcbt';
+      controller.hostC.text = host;
+      controller.port.value = port;
+      controller.userC.text = user;
+      controller.passC.text = password;
+      controller.dbNameC.text = dbName;
+      controller.settingPassC.text = box.read('setting_pass') ?? 'cbtsmkn2mtr';
+      controller.unlockKeyC.text = box.read('unlock_key') ?? 'cbtsmkn2mtr';
       controller.isLoadingFirst.value = true;
     }
     controller.isTesting.value = false;
@@ -414,17 +418,6 @@ class ConfigView extends GetView<ConfigController> {
               ),
             ),
           ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          backgroundColor: Colors.red.shade400,
-          onPressed: () {
-            AllMaterial.exitApp();
-          },
-          tooltip: "Keluar Aplikasi",
-          child: Icon(
-            Icons.power_settings_new,
-            color: Colors.white,
-          ),
         ),
       ),
     );

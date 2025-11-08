@@ -11,7 +11,7 @@ class DatabaseService extends GetxService {
 
     final settings = ConnectionSettings(
       host: box.read('db_host') ?? 'localhost',
-      port: box.read('db_port') ?? 3307,
+      port: box.read('db_port') ?? 3306,
       user: box.read('db_user') ?? 'root',
       password: box.read('db_pass') ?? '',
       db: box.read('db_name') ?? 'cbt_db',
@@ -21,7 +21,7 @@ class DatabaseService extends GetxService {
       _connection = await MySqlConnection.connect(settings);
       return _connection!;
     } catch (e) {
-      print("❌ Gagal terhubung ke database: $e");
+      print("Gagal terhubung ke database: $e");
       rethrow;
     }
   }
@@ -33,7 +33,7 @@ class DatabaseService extends GetxService {
     required String password,
     required String dbName,
   }) async {
-    print('Connecting with:');
+    print('Menghubungkan ke:');
     print('user: "${user.trim()}"');
     print('password: "${password.trim()}"');
     print('db: "${dbName.trim()}"');

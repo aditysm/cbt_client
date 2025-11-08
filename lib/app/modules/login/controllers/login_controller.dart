@@ -170,9 +170,9 @@ class LoginController extends GetxController {
       passwordC.clear();
       allError.value = "";
     } catch (e) {
-      allError.value = "Terjadi kesalahan saat login";
+      allError.value =
+          "Terjadi kesalahan saat login. Periksa kembali input Anda!";
       print("Login error: $e");
-      ToastService.show("Terjadi kesalahan. Coba lagi nanti.");
     } finally {
       isLoading.value = false;
     }

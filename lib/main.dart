@@ -8,6 +8,7 @@ import 'package:aplikasi_cbt/app/modules/login/views/login_view.dart';
 import 'package:aplikasi_cbt/app/services/database_service.dart';
 import 'package:aplikasi_cbt/app/utils/app_colors.dart';
 import 'package:aplikasi_cbt/app/utils/app_material.dart';
+import 'package:aplikasi_cbt/app/utils/app_scroll.dart';
 import 'package:aplikasi_cbt/app/utils/loading_splash.dart';
 import 'package:aplikasi_cbt/app/utils/toast_dialog.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -55,6 +56,14 @@ void main() async {
       title: "CBT Client",
       getPages: AppPages.routes,
       themeMode: ThemeMode.light,
+      defaultTransition: Transition.cupertino,
+      transitionDuration: const Duration(milliseconds: 350),
+      builder: (context, child) {
+        return ScrollConfiguration(
+          behavior: const NoAlwaysScrollableBehavior(),
+          child: child!,
+        );
+      },
       home: WillPopScope(
         onWillPop: () async => false,
         child: LoadingSplashView(
@@ -68,11 +77,11 @@ void main() async {
                 final dbService = Get.find<DatabaseService>();
                 final box = AllMaterial.box;
                 final host =
-                    box.read('db_host') ?? AllMaterial.getDefaultDbHost;
-                final port = box.read('db_port') ?? 3307;
-                final user = box.read('db_user') ?? 'root';
-                final password = box.read('db_pass') ?? 'root';
-                final dbName = box.read('db_name') ?? 'cbt';
+                    box.read('db_host') ?? "192.100.0.254";
+                final port = box.read('db_port') ?? 3306;
+                final user = box.read('db_user') ?? 'cbtclient';
+                final password = box.read('db_pass') ?? '12345678@CBTclient';
+                final dbName = box.read('db_name') ?? 'dbcbt';
 
                 final connected = await dbService.testConnection(
                   host: host,
@@ -84,22 +93,22 @@ void main() async {
 
                 if (connected) {
                   Get.offAll(() => LoginView());
-                  ToastService.show("✅ Koneksi berhasil, silakan login!");
+                  ToastService.show("Koneksi berhasil, silakan login!");
                 } else {
                   Get.offAll(() => LoginView());
                   ToastService.show(
-                      "❌ Koneksi gagal, harap konfigurasi ulang!");
+                      "Koneksi gagal, harap konfigurasi ulang!");
                 }
               } else {
                 ToastService.show(
-                  "⚠️ Koneksi tidak ditemukan, harap konfigurasi!",
+                  "Koneksi tidak ditemukan, harap konfigurasi!",
                 );
                 Get.offAll(() => LoginView());
               }
             } catch (e) {
               final errorMessage =
                   AllMaterial.getErrorMessageFromException(e.toString());
-              ToastService.show("❌ $errorMessage");
+              ToastService.show(errorMessage);
               Get.offAll(() => LoginView());
             }
           },

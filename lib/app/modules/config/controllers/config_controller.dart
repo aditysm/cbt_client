@@ -11,7 +11,7 @@ class ConfigController extends GetxController {
   final isLoadingFirst = false.obs;
 
   final host = "".obs;
-  final port = 3307.obs;
+  final port = 3306.obs;
 
   var isLoading = false.obs;
 
@@ -95,7 +95,7 @@ class ConfigController extends GetxController {
         host: hostC.text.isEmpty
             ? AllMaterial.getDefaultDbHost()
             : hostC.text.trim(),
-        port: 3307,
+        port: 3306,
         user: userC.text.trim(),
         password: passC.text.trim(),
         dbName: dbNameC.text.trim(),
@@ -113,7 +113,7 @@ class ConfigController extends GetxController {
                 : hostC.text.trim());
         box.write(
           'db_port',
-          3307,
+          3306,
         );
         box.write('db_user', userC.text.trim());
         box.write('db_pass', passC.text.trim());
@@ -128,13 +128,13 @@ class ConfigController extends GetxController {
         }
 
         testResult.value =
-            "Berhasil terhubung ke ${dbNameC.text.isNotEmpty ? dbNameC.text.trim() : "3307"}";
+            "Berhasil terhubung ke ${dbNameC.text.isNotEmpty ? dbNameC.text.trim() : "3306"}";
       } else {
         testResult.value = "Koneksi gagal, silakan periksa konfigurasi Anda!";
       }
     } catch (e) {
-      // testResult.value = AllMaterial.getErrorMessageFromException(e.toString());
-      testResult.value = e.toString();
+      testResult.value = AllMaterial.getErrorMessageFromException(e.toString());
+      // testResult.value = e.toString();
       isTesting.value = false;
     }
   }

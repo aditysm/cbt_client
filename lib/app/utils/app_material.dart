@@ -28,14 +28,14 @@ abstract class AllMaterial {
   }
 
   static String getDefaultDbHost() {
-    if (kIsWeb) return 'localhost';
-    if (Platform.isAndroid) {
-      return '127.0.0.1';
-    } else if (Platform.isIOS) {
-      return '127.0.0.1';
-    } else {
-      return 'localhost';
-    }
+    if (kIsWeb || isDesktop) return 'localhost';
+    // if (Platform.isAndroid) {
+    //   return '127.0.0.1';
+    // } else if (Platform.isIOS) {
+    //   return '127.0.0.1';
+    // } else {
+    // }
+    return '10.0.2.2';
   }
 
   static String getErrorMessageFromException(String error) {
@@ -76,7 +76,7 @@ abstract class AllMaterial {
   }
 
   static Future<void> exitApp({bool fromUjian = false}) async {
-    String storedKeyword = box.read('unlock_key') ?? "";
+    String storedKeyword = box.read('unlock_key') ?? "cbtsmkn2mtr";
 
     String typedValue = "";
 

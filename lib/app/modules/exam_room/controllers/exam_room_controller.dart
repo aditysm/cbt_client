@@ -155,18 +155,34 @@ class ExamRoomController extends GetxController {
     }
 
     try {
-      final statusCheck = await dbService.query("""
-      SELECT 1 FROM ujian 
-      WHERE KodeUjian = ? AND StatusUjian = 'Ujian Selesai'
-      UNION ALL
-      SELECT 1 FROM ujian_detil_siswa 
-      WHERE KodeUjian = ? AND NIS = ? AND StatusUjianSiswa = 'Selesai Ujian'
-    """, [kodeUjian, kodeUjian, nis]);
+      final globalStatus = await dbService.query("""
+    SELECT StatusUjian FROM ujian WHERE KodeUjian = ?
+  """, [kodeUjian]);
 
-      if (statusCheck.isNotEmpty) {
-        print("⚠️ Ujian sudah selesai, langsung finishExam");
+      if (globalStatus.isNotEmpty &&
+          globalStatus.first['StatusUjian'] == 'Ujian Selesai') {
+        print("⚠️ Ujian telah ditutup oleh administrator (global).");
         await finishExam(fromStatus: true, otomatis: true);
         return;
+      }
+
+      final siswaStatus = await dbService.query("""
+  SELECT StatusUjianSiswa FROM ujian_detil_siswa
+  WHERE KodeUjian = ? AND NIS = ?
+  LIMIT 1
+""", [kodeUjian, nis]);
+
+      if (siswaStatus.isEmpty) {
+        print("Data siswa belum terdaftar di ujian_detil_siswa ($nis)");
+      } else {
+        final status = siswaStatus.first['StatusUjianSiswa']?.toString() ?? '';
+        print("Status siswa $nis di ujian $kodeUjian: $status");
+
+        if (status.trim().toLowerCase() == 'selesai ujian') {
+          print("Siswa $nis sudah menyelesaikan ujian ini.");
+          await finishExam(fromStatus: true, otomatis: true);
+          return;
+        }
       }
 
       jawabanPerSoal[kodeSoal] = option;
@@ -174,49 +190,41 @@ class ExamRoomController extends GetxController {
       print("Soal $kodeSoal jawaban: $option");
       print("Jumlah jawaban tersimpan: ${jawabanPerSoal.length}");
 
-      final existing = await dbService.query(
-        """
-      SELECT 1 FROM ujian_detil_hasil
-      WHERE KodeUjian = ? AND NIS = ? AND KodeSoal = ?
-      """,
-        [kodeUjian, nis, kodeSoal],
-      );
+      final existing = await dbService.query("""
+    SELECT 1 FROM ujian_detil_hasil
+    WHERE KodeUjian = ? AND NIS = ? AND KodeSoal = ?
+  """, [kodeUjian, nis, kodeSoal]);
 
       if (existing.isEmpty) {
-        await dbService.execute(
-          """
-        INSERT INTO ujian_detil_hasil
-          (KodeUjian, NIS, NomorSoal, KodeSoal, JawabanBenar, PilihanJawaban, StatusRaguRagu, StatusUpload, KeteranganUpload)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-          [
-            kodeUjian,
-            nis,
-            soal?.nomorUrut,
-            kodeSoal,
-            soal?.soal?.jawabanBenar,
-            option,
-            raguPerSoal[kodeSoal] == true ? 'Ragu' : 'Tidak Ragu',
-            'Belum',
-            '',
-          ],
-        );
+        await dbService.execute("""
+      INSERT INTO ujian_detil_hasil
+        (KodeUjian, NIS, NomorSoal, KodeSoal, JawabanBenar, PilihanJawaban,
+         StatusRaguRagu, StatusUpload, KeteranganUpload)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, [
+          kodeUjian,
+          nis,
+          soal?.nomorUrut,
+          kodeSoal,
+          soal?.soal?.jawabanBenar,
+          option,
+          raguPerSoal[kodeSoal] == true ? 'Ragu' : 'Tidak Ragu',
+          'Belum',
+          '',
+        ]);
         print("✅ Jawaban soal $kodeSoal berhasil disimpan (insert)");
       } else {
-        await dbService.execute(
-          """
-        UPDATE ujian_detil_hasil
-        SET PilihanJawaban = ?, StatusRaguRagu = ?
-        WHERE KodeUjian = ? AND NIS = ? AND KodeSoal = ?
-        """,
-          [
-            option,
-            raguPerSoal[kodeSoal] == true ? 'Ragu' : 'Tidak Ragu',
-            kodeUjian,
-            nis,
-            kodeSoal,
-          ],
-        );
+        await dbService.execute("""
+      UPDATE ujian_detil_hasil
+      SET PilihanJawaban = ?, StatusRaguRagu = ?
+      WHERE KodeUjian = ? AND NIS = ? AND KodeSoal = ?
+    """, [
+          option,
+          raguPerSoal[kodeSoal] == true ? 'Ragu' : 'Tidak Ragu',
+          kodeUjian,
+          nis,
+          kodeSoal,
+        ]);
         print("✅ Jawaban soal $kodeSoal berhasil diupdate");
       }
     } catch (e) {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:aplikasi_cbt/app/data/model/detil_soal_ujian_model.dart';
 import 'package:aplikasi_cbt/app/modules/exam_room/views/exam_room_view.dart';
 import 'package:aplikasi_cbt/app/modules/login/controllers/login_controller.dart';
+import 'package:aplikasi_cbt/app/modules/review/views/review_view.dart';
 import 'package:aplikasi_cbt/app/services/database_service.dart';
 import 'package:aplikasi_cbt/app/utils/app_material.dart';
 import 'package:aplikasi_cbt/app/utils/toast_dialog.dart';
@@ -188,7 +189,11 @@ class ExamConfirmationController extends GetxController {
         onConfirm: () async {
           Get.back();
           await loadSoal();
-          Get.offAll(() => ExamRoomView());
+          if (detilSoalUjian.isEmpty) {
+            Get.offAll(() => ReviewView());
+          } else {
+            Get.offAll(() => ExamRoomView());
+          }
         },
         customContent: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

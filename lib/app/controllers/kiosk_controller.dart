@@ -18,7 +18,7 @@ class KioskHelper {
       }
 
       isKiosk.value = true;
-      print("✅ Kiosk mode aktif (ketat & lintas platform)");
+      print("✅ Kiosk mode aktif (ketat & aman)");
     } catch (e) {
       print("❌ Gagal aktifkan kiosk mode: $e");
     }
@@ -33,18 +33,14 @@ class KioskHelper {
       }
 
       isKiosk.value = false;
-      print("✅ Kiosk mode dinonaktifkan dan sistem pulih");
+      print("✅ Kiosk mode dimatikan dan sistem dipulihkan");
     } catch (e) {
-      print("❌ Gagal nonaktifkan kiosk mode: $e");
+      print("❌ Gagal menonaktifkan kiosk mode: $e");
     }
   }
 
   static Future<void> toggle() async {
-    if (isKiosk.value) {
-      await disableKioskMode();
-    } else {
-      await enableKioskMode();
-    }
+    isKiosk.value ? await disableKioskMode() : await enableKioskMode();
   }
 
   static Future<void> _enableDesktopKiosk() async {
@@ -67,7 +63,6 @@ class KioskHelper {
   static Future<void> _disableDesktopKiosk() async {
     if (Platform.isWindows) {
       await Process.run("explorer.exe", []);
-
       await _unblockSystemKeys();
       await windowManager.setFullScreen(false);
       await windowManager.setResizable(true);
@@ -101,16 +96,20 @@ reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer" /v NoWinKeys /f
     if (Platform.isAndroid) {
       try {
         await _channel.invokeMethod('enableSecureFlag');
-        await _channel.invokeMethod('enableKioskMode');
+        await _channel.invokeMethod('enableStrictKiosk');
       } catch (e) {
-        print("⚠️ Gagal panggil native Android: $e");
+        print("⚠️ Native Android gagal: $e");
+      }
+    } else if (Platform.isIOS) {
+      try {
+        await _channel.invokeMethod('enableGuidedAccess');
+      } catch (e) {
+        print("⚠️ Native iOS gagal: $e");
       }
     }
 
     ever(isKiosk, (val) async {
-      if (val == true) {
-        await _monitorFocusLoss();
-      }
+      if (val == true) await _monitorFocusLoss();
     });
   }
 
@@ -122,12 +121,10 @@ reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer" /v NoWinKeys /f
     await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
 
     if (Platform.isAndroid) {
-      try {
-        await _channel.invokeMethod('disableKioskMode');
-        await _channel.invokeMethod('disableSecureFlag');
-      } catch (e) {
-        print("⚠️ Gagal nonaktifkan native Android: $e");
-      }
+      await _channel.invokeMethod('disableStrictKiosk');
+      await _channel.invokeMethod('disableSecureFlag');
+    } else if (Platform.isIOS) {
+      await _channel.invokeMethod('disableGuidedAccess');
     }
   }
 
