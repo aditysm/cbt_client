@@ -52,7 +52,7 @@ void main() async {
   runApp(
     GetMaterialApp(
       debugShowCheckedModeBanner: false,
-      title: "CBT Client",
+      title: "CBT SMKN 2 Mataram",
       getPages: AppPages.routes,
       themeMode: ThemeMode.light,
       defaultTransition: Transition.cupertino,
@@ -75,8 +75,7 @@ void main() async {
               if (config != null) {
                 final dbService = Get.find<DatabaseService>();
                 final box = AllMaterial.box;
-                final host =
-                    box.read('db_host') ?? "192.100.0.254";
+                final host = box.read('db_host') ?? "192.100.0.254";
                 final port = box.read('db_port') ?? 3306;
                 final user = box.read('db_user') ?? 'cbtclient';
                 final password = box.read('db_pass') ?? '12345678@CBTclient';
@@ -95,8 +94,7 @@ void main() async {
                   ToastService.show("Koneksi berhasil, silakan login!");
                 } else {
                   Get.offAll(() => LoginView());
-                  ToastService.show(
-                      "Koneksi gagal, harap konfigurasi ulang!");
+                  ToastService.show("Koneksi gagal, harap konfigurasi ulang!");
                 }
               } else {
                 ToastService.show(

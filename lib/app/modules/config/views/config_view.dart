@@ -99,7 +99,7 @@ class ConfigView extends GetView<ConfigController> {
                                   backgroundColor: theme.colorScheme.primary
                                       .withOpacity(0.1),
                                   child: Image.asset(
-                                      "assets/icons/logo-dikbud.png"),
+                                      "assets/icons/logo-smeda.png"),
                                 ),
                               ),
                               const SizedBox(height: 24),

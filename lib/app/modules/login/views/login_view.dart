@@ -82,7 +82,7 @@ class LoginView extends GetView<LoginController> {
                                   backgroundColor: theme.colorScheme.primary
                                       .withOpacity(0.1),
                                   child: Image.asset(
-                                      "assets/icons/logo-dikbud.png"),
+                                      "assets/icons/logo-smeda.png"),
                                 ),
                               ),
                               const SizedBox(height: 24),
@@ -90,7 +90,6 @@ class LoginView extends GetView<LoginController> {
                               // Title
                               Center(
                                 child: Column(
-                                  
                                   children: [
                                     Text(
                                       'Login ke CBT Client',

@@ -157,7 +157,7 @@ class ExamConfirmationView extends GetView<ExamConfirmationController> {
                     SizedBox(
                       height: 30,
                       child: Image.asset(
-                        "assets/icons/logo-dikbud.png",
+                        "assets/icons/logo-smeda.png",
                         gaplessPlayback: true,
                       ),
                     ),
