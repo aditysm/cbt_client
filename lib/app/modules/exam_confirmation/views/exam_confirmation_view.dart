@@ -340,20 +340,6 @@ class ExamConfirmationView extends GetView<ExamConfirmationController> {
                               IgnorePointer(
                                 child: TextField(
                                   controller: TextEditingController(
-                                    text: LoginController.mataPelajaran.value,
-                                  ),
-                                  readOnly: true,
-                                  decoration: _inputDecoration(
-                                    isDesktop: isDesktop,
-                                    label: "Mata Pelajaran",
-                                    icon: Icons.menu_book,
-                                    isMax: true,
-                                  ),
-                                ),
-                              ),
-                              IgnorePointer(
-                                child: TextField(
-                                  controller: TextEditingController(
                                     text: LoginController
                                             .dataUjian.value?.statusUjian ??
                                         "",
@@ -415,22 +401,6 @@ class ExamConfirmationView extends GetView<ExamConfirmationController> {
                                     label: "Kelas",
                                     isMax: true,
                                     icon: Icons.meeting_room,
-                                  ),
-                                ),
-                              ),
-                              IgnorePointer(
-                                child: TextField(
-                                  controller: TextEditingController(
-                                    text: LoginController
-                                            .dataUjian.value?.kodeGuru ??
-                                        "",
-                                  ),
-                                  readOnly: true,
-                                  decoration: _inputDecoration(
-                                    isDesktop: isDesktop,
-                                    isMax: true,
-                                    label: "Guru Pengampu",
-                                    icon: Icons.person,
                                   ),
                                 ),
                               ),

@@ -1,7 +1,9 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:io';
 
 import 'package:aplikasi_cbt/app/controllers/kiosk_controller.dart';
-import 'package:aplikasi_cbt/app/utils/toast_dialog.dart';
+import 'package:aplikasi_cbt/app/utils/app_colors.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -27,15 +29,123 @@ abstract class AllMaterial {
     return Platform.isWindows || Platform.isLinux || Platform.isMacOS;
   }
 
+  static void showInfoBottomSheet({
+    required String title,
+    required String message,
+    IconData icon = Icons.info,
+    String buttonText = "OK",
+    void Function()? onPressed,
+    Color? color,
+    Duration? duration,
+    bool isDismissible = true,
+  }) {
+    final ctx = Get.context!;
+    final theme = Theme.of(ctx);
+
+    final canDismiss = duration == null ? isDismissible : false;
+
+    Get.bottomSheet(
+      isDismissible: canDismiss,
+      enableDrag: canDismiss,
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: theme.cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 16,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: (color ?? Colors.redAccent).withOpacity(.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 42,
+                color: color ?? Colors.redAccent,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                height: 1.4,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const SizedBox(height: 22),
+            if (duration == null)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    if (onPressed != null) {
+                      onPressed();
+                    }
+                    Get.back();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14, horizontal: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    buttonText,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: .3,
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+
+    if (duration != null) {
+      Future.delayed(duration, () {
+        if (Get.isBottomSheetOpen ?? false) {
+          Get.back();
+        }
+      });
+    }
+  }
+
   static String getDefaultDbHost() {
     if (kIsWeb || isDesktop) return 'localhost';
-    // if (Platform.isAndroid) {
-    //   return '127.0.0.1';
-    // } else if (Platform.isIOS) {
-    //   return '127.0.0.1';
-    // } else {
-    // }
-    return '10.0.2.2';
+    if (Platform.isAndroid) {
+      return '127.0.0.1';
+    } else if (Platform.isIOS) {
+      return '127.0.0.1';
+    } else {
+      return '10.0.2.2';
+    }
   }
 
   static String getErrorMessageFromException(String error) {
@@ -45,11 +155,19 @@ abstract class AllMaterial {
         lowerError.contains('failed host lookup') ||
         lowerError.contains('network is unreachable') ||
         lowerError.contains('remote computer refused the network connection') ||
-        lowerError.contains('socketexception')) {
-      return "Ada masalah dengan koneksi, coba lagi nanti!";
+        lowerError.contains('socketexception') ||
+        lowerError.contains('cannot write to socket') ||
+        lowerError.contains('socket is closed')) {
+      return "Ada masalah koneksi jaringan atau socket terputus. Periksa jaringan & ulangi!";
+    }
+
+    if (lowerError.contains('1156') ||
+        lowerError.contains('packets out of order') ||
+        lowerError.contains('08s01')) {
+      return "Koneksi database tidak ditemukan & terputus. Coba lagi nanti!";
     } else if (lowerError.contains('timeout') ||
         lowerError.contains('semaphore timeout')) {
-      return "Waktu koneksi habis. Silakan coba lagi!";
+      return "Waktu koneksi habis. Silahkan coba lagi!";
     } else if (lowerError.contains('unauthorized') ||
         lowerError.contains('401') ||
         lowerError.contains('access denied')) {
@@ -58,88 +176,49 @@ abstract class AllMaterial {
         lowerError.contains('unknown')) {
       return "Database tidak ditemukan. Periksa nama database!";
     } else if (lowerError.contains('error 1045')) {
-      return "Access denied: Username atau password MySQL salah!";
+      return "Access denied: Username atau password server salah!";
     } else if (lowerError.contains('error 1049')) {
       return "Database tidak ada (1049). Periksa konfigurasi!";
     } else if (lowerError.contains('error 2003')) {
-      return "Tidak bisa konek ke server MySQL. Periksa host/port!";
+      return "Tidak bisa terhubung ke server. Periksa host/port!";
     } else if (lowerError.contains('error 1064')) {
       return "Kesalahan sintaks SQL (1064). Periksa query!";
     } else if (lowerError.contains('not found') || lowerError.contains('404')) {
       return "Data tidak ditemukan!";
     } else if (lowerError.contains('server error') ||
         lowerError.contains('500')) {
-      return "Terjadi kesalahan pada server. Silakan coba lagi nanti!";
+      return "Terjadi kesalahan pada server. Silahkan coba lagi nanti!";
+    } else if (lowerError.contains('no element')) {
+      return "User tidak ditemukan. Periksa input Anda!";
     }
 
     return "Terjadi kesalahan: $error";
   }
 
   static Future<void> exitApp({bool fromUjian = false}) async {
-    String storedKeyword = box.read('unlock_key') ?? "12345678";
+    return AllMaterial.cusDialogValidasi(
+      title: "Keluar dari Aplikasi",
+      subtitle: "Apakah Anda yakin ingin menutup aplikasi?",
+      confirmText: "LANJUT",
+      cancelText: "BATAL",
+      onCancel: () => Get.back(),
+      onConfirm: () {
+        Get.back();
 
-    String typedValue = "";
-
-    if (storedKeyword.isEmpty) {
-      return AllMaterial.cusDialogValidasi(
-        onCancel: () {
-          if (fromUjian) {
-            AllMaterial.cusDialogValidasi(
-              onConfirm: () => Get.back(),
-              title: "Progres Ujian akan hilang.",
-              subtitle: "Apakah Anda ingin menutup aplikasi sekarang?",
-              cancelText: "LANJUT",
-              confirmText: "BATAL",
-              onCancel: () {
-                executeExit();
-              },
-            );
-          } else {
-            executeExit();
-          }
-        },
-        cancelText: "LANJUT",
-        confirmText: "BATAL",
-        title: "Keluar dari Aplikasi",
-        subtitle: "Apakah Anda yakin ingin menutup aplikasi?",
-        onConfirm: () => Get.back(),
-      );
-    }
-
-    return cusDialogInput(
-      title: "Masukkan Kata Kunci",
-      onChanged: (value) {
-        typedValue = value.trim();
-      },
-      onTap: () {
-        if (typedValue == storedKeyword) {
-          Get.back();
-
+        if (fromUjian) {
           AllMaterial.cusDialogValidasi(
-            onCancel: () {
-              if (fromUjian) {
-                AllMaterial.cusDialogValidasi(
-                  onConfirm: () => Get.back(),
-                  title: "Progres Ujian akan hilang.",
-                  subtitle: "Apakah Anda ingin menutup aplikasi sekarang?",
-                  cancelText: "LANJUT",
-                  confirmText: "BATAL",
-                  onCancel: () {
-                    executeExit();
-                  },
-                );
-              } else {
-                executeExit();
-              }
+            title: "Progres Ujian akan hilang.",
+            subtitle: "Apakah Anda ingin menutup aplikasi sekarang?",
+            confirmText: "LANJUT",
+            cancelText: "BATAL",
+            onCancel: () => Get.back(),
+            onConfirm: () {
+              Get.back();
+              executeExit();
             },
-            cancelText: "LANJUT",
-            confirmText: "BATAL",
-            title: "Keluar dari Aplikasi",
-            subtitle: "Apakah Anda yakin ingin menutup aplikasi?",
-            onConfirm: () => Get.back(),
           );
         } else {
-          ToastService.show("Kata kunci tidak sesuai, silakan coba lagi.");
+          executeExit();
         }
       },
     );
@@ -219,94 +298,122 @@ abstract class AllMaterial {
         insetPadding: const EdgeInsets.symmetric(horizontal: 24),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 400),
-          child: KeyboardListener(
-            focusNode: FocusNode()..requestFocus(),
-            autofocus: true,
-            onKeyEvent: (event) {
-              if (event is KeyDownEvent &&
-                  event.logicalKey == LogicalKeyboardKey.enter &&
-                  _confirmEnabled.value) {
-                onConfirm?.call();
-              }
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(icon, size: 32, color: iconColor),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          title ?? '',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, size: 32, color: iconColor),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        title ?? '',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (customContent != null)
-                    customContent
-                  else if (subtitle != null && subtitle.isNotEmpty)
-                    Text(
-                      subtitle,
-                      style: const TextStyle(fontSize: 15),
                     ),
-                  const SizedBox(height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (showCancel)
-                        TextButton(
-                          onPressed: onCancel ?? () => Get.back(),
-                          child: Text(
-                            cancelText,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      if (showCancel) const SizedBox(width: 12),
-                      Obx(
-                        () => ElevatedButton(
-                          onPressed: _confirmEnabled.value ? onConfirm : null,
-                          autofocus: true,
-                          style: ElevatedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 16,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Text(
-                            confirmText,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                            ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (customContent != null)
+                  customContent
+                else if (subtitle != null && subtitle.isNotEmpty)
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 15),
+                  ),
+                const SizedBox(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (showCancel)
+                      TextButton(
+                        onPressed: onCancel ?? () => Get.back(),
+                        child: Text(
+                          cancelText,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    if (showCancel) const SizedBox(width: 12),
+                    Obx(
+                      () => ElevatedButton(
+                        onPressed: _confirmEnabled.value ? onConfirm : null,
+                        autofocus: true,
+                        style: ElevatedButton.styleFrom(
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          confirmText,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
       ),
       barrierDismissible: showCancel,
     );
+  }
+
+  static void bindLoadingDialog(RxBool isLoading) {
+    ever<bool>(isLoading, (loading) {
+      if (loading) {
+        if (Get.isDialogOpen != true) {
+          Get.dialog(
+            WillPopScope(
+              onWillPop: () async => false,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const SizedBox(
+                    height: 28,
+                    width: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.primaryBlue,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            barrierColor: Colors.black.withOpacity(0.2),
+            barrierDismissible: false,
+          );
+        }
+      } else {
+        if (Get.isDialogOpen == true) {
+          Get.back();
+        }
+      }
+    });
   }
 
   static void cusDialogInput({
@@ -356,81 +463,73 @@ abstract class AllMaterial {
           borderRadius: BorderRadius.circular(15),
         ),
         insetPadding: const EdgeInsets.symmetric(horizontal: 24),
-        child: KeyboardListener(
-          focusNode: FocusNode()..requestFocus(),
-          autofocus: true,
-          onKeyEvent: (event) {
-            if (event is KeyDownEvent &&
-                event.logicalKey == LogicalKeyboardKey.enter) {
-              onTap.call();
-            }
-          },
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  obscureText: true,
+                  controller: textController,
+                  focusNode: textFocus,
+                  onChanged: onChanged,
+                  textInputAction: TextInputAction.done,
+                  keyboardType: TextInputType.visiblePassword,
+                  autofocus: true,
+                  decoration: inputDecoration(icon: icon),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Get.back(),
+                      child: Text(
+                        "BATAL",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    obscureText: true,
-                    controller: textController,
-                    focusNode: textFocus,
-                    onChanged: onChanged,
-                    autofocus: true,
-                    decoration: inputDecoration(icon: icon),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Get.back(),
-                        child: Text(
-                          "BATAL",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.5,
-                          ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: () {
+                        onTap.call();
+                      },
+                      autofocus: true,
+                      style: ElevatedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: () {
-                          onTap.call();
-                        },
-                        autofocus: true,
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 16,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: Text(
-                          "LANJUT",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.5,
-                          ),
+                      child: Text(
+                        "LANJUT",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),

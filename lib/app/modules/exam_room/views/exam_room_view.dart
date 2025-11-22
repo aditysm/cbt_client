@@ -360,14 +360,10 @@ class ExamRoomView extends GetView<ExamRoomController> {
                                 const SizedBox(height: 8),
                                 _buildSummaryCard(Icons.question_answer,
                                     "Jumlah Soal: ${ujian?.jumlahSoal ?? ""}"),
-                                _buildSummaryCard(Icons.book,
-                                    "Mapel: ${LoginController.mataPelajaran.value}"),
                                 _buildSummaryCard(Icons.school,
                                     "Kelas: ${ujian?.kelas ?? ""}"),
                                 _buildSummaryCard(Icons.work,
                                     "Program Keahlian: ${ujian?.programKeahlianGabung ?? ""}"),
-                                _buildSummaryCard(Icons.person,
-                                    "Guru Pengampu: ${ujian?.namaGuru ?? ""}"),
                                 const SizedBox(height: 16),
                               ],
                             ),
@@ -463,7 +459,7 @@ class ExamRoomView extends GetView<ExamRoomController> {
                                           MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
-                                          "${controller.currentIndex.value + 1} dari ${controller.userUjian?.jumlahSoal ?? "0"} Soal",
+                                          "${controller.currentIndex.value + 1} dari ${LoginController.dataUjian.value?.jumlahSoal ?? "0"} Soal",
                                           style: theme.textTheme.titleMedium
                                               ?.copyWith(
                                             fontWeight: FontWeight.bold,
@@ -718,7 +714,8 @@ class ExamRoomView extends GetView<ExamRoomController> {
                             onPressed: isLast ||
                                     controller.selectedAnswer.isEmpty ||
                                     (controller.selectedAnswer.isEmpty &&
-                                        controller.isMarkedRagu.value)
+                                        controller.isMarkedRagu.value) ||
+                                    ExamRoomController.isLoading.value
                                 ? null
                                 : () {
                                     controller.nextQuestion();
@@ -726,11 +723,22 @@ class ExamRoomView extends GetView<ExamRoomController> {
                             style: ElevatedButton.styleFrom(
                               minimumSize: Size.fromHeight(isDesktop ? 48 : 40),
                             ),
-                            label: Text("Soal Berikutnya"),
-                            icon: Icon(
-                              Icons.arrow_forward_ios_sharp,
-                              size: 16,
-                            ),
+                            label: ExamRoomController.isLoading.value
+                                ? Text("Menyimpan jawaban...")
+                                : Text("Soal Berikutnya"),
+                            icon: ExamRoomController.isLoading.value
+                                ? const SizedBox(
+                                    height: 15,
+                                    width: 15,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Icon(
+                                    Icons.arrow_forward_ios_sharp,
+                                    size: 16,
+                                  ),
                           );
                         }),
                       ],
@@ -806,7 +814,7 @@ class ExamRoomView extends GetView<ExamRoomController> {
           ),
           const SizedBox(height: 16),
           Text(
-            "${controller.currentIndex.value + 1} dari ${controller.userUjian?.jumlahSoal ?? "0"} Soal",
+            "${controller.currentIndex.value + 1} dari ${LoginController.dataUjian.value?.jumlahSoal ?? "0"} Soal",
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),

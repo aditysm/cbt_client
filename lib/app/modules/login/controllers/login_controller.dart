@@ -3,6 +3,7 @@ import 'package:aplikasi_cbt/app/data/model/info_login_model.dart';
 import 'package:aplikasi_cbt/app/modules/student_confirmation/views/student_confirmation_view.dart';
 import 'package:aplikasi_cbt/app/services/database_service.dart';
 import 'package:aplikasi_cbt/app/services/network_service.dart';
+import 'package:aplikasi_cbt/app/utils/app_material.dart';
 import 'package:aplikasi_cbt/app/utils/toast_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -10,7 +11,7 @@ import 'package:get/get.dart';
 class LoginController extends GetxController {
   var isLoading = false.obs;
   final usernameC = TextEditingController();
-  final usernameF = FocusNode();
+  static final usernameF = FocusNode();
   final passwordC = TextEditingController();
   final passwordF = FocusNode();
   final dbService = Get.find<DatabaseService>();
@@ -19,9 +20,13 @@ class LoginController extends GetxController {
   static final dataUjian = Rx<UserUjian?>(null);
   static final infoLogin = Rx<InfoLogin?>(null);
 
+  static void startLogin() {
+    usernameF.requestFocus();
+  }
+
   final usernameError = "".obs;
   final passwordError = "".obs;
-  final allError = "".obs;
+  static final allError = "".obs;
 
   static var mataPelajaran = "".obs;
 
@@ -45,6 +50,9 @@ class LoginController extends GetxController {
         allError.value = '';
       }
     });
+
+    LoginController.infoLogin.value = null;
+    LoginController.dataUjian.value = null;
     super.onInit();
   }
 
@@ -65,7 +73,7 @@ class LoginController extends GetxController {
 
     if (!isValid) {
       Future.delayed(const Duration(milliseconds: 300));
-      allError.value = "Silakan periksa kembali input Anda.";
+      allError.value = "Silahkan periksa kembali input Anda.";
       usernameF.requestFocus();
     }
 
@@ -73,12 +81,19 @@ class LoginController extends GetxController {
   }
 
   Future<void> login() async {
+    usernameF.unfocus();
+    passwordF.unfocus();
+    await Future.delayed(Durations.medium2);
     isLoading.value = true;
 
     if (!_validateForm()) {
       isLoading.value = false;
       return;
     }
+
+    LoginController.infoLogin.value = null;
+    LoginController.dataUjian.value = null;
+    update();
 
     await Future.delayed(const Duration(seconds: 2));
 
@@ -170,12 +185,11 @@ class LoginController extends GetxController {
       passwordC.clear();
       allError.value = "";
     } catch (e) {
-      allError.value =
-          "Terjadi kesalahan saat login. Periksa kembali input Anda!";
-      print("Login error: $e");
+      allError.value = AllMaterial.getErrorMessageFromException(e.toString());
     } finally {
       isLoading.value = false;
     }
+    update();
   }
 
   Future<void> isiKeterangan() async {

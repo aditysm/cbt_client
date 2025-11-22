@@ -18,8 +18,10 @@ class ExamConfirmationController extends GetxController {
   final dbService = Get.find<DatabaseService>();
   final kodeUjian = LoginController.dataUjian.value?.kodeUjian ?? "";
   final ujian = LoginController.dataUjian.value;
+  static var isLoading = false.obs;
 
   Future<void> loadSoal() async {
+    isLoading.value = true;
     try {
       final ujian = LoginController.dataUjian.value;
       if (ujian == null) {
@@ -167,6 +169,8 @@ class ExamConfirmationController extends GetxController {
     } catch (e) {
       print("❌ Load soal error: $e");
       ToastService.show("Terjadi kesalahan saat memuat soal.");
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -243,6 +247,11 @@ class ExamConfirmationController extends GetxController {
   void onInit() {
     super.onInit();
     startRealtimeChecker();
+    AllMaterial.bindLoadingDialog(isLoading);
+
+    ExamConfirmationController.statusUjianSiswa = "";
+
+    ExamConfirmationController.detilSoalUjian.assignAll(<UjianDetilSoal>[]);
   }
 
   void startRealtimeChecker() async {
@@ -302,6 +311,9 @@ class ExamConfirmationController extends GetxController {
       print(
           "🕒 Debug: now=$now | mulai=$waktuMulaiUjian | diff=${now.difference(waktuMulaiUjian!).inSeconds}s");
 
+      print(waktuMulaiUjian);
+      print(waktuAkhirUjian);
+
       switch (modelDurasi) {
         case "Flat Time (Mengikuti Waktu Ujian)":
           if (waktuAkhirUjian == null) {
@@ -316,6 +328,8 @@ class ExamConfirmationController extends GetxController {
           } else if (now.isAfter(waktuAkhirUjian)) {
             aktif = false;
             info = "Ujian sudah selesai.";
+            timer?.cancel();
+            info = "";
           } else {
             timer?.cancel();
             aktif = true;

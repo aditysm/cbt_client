@@ -1,29 +1,25 @@
+import 'package:aplikasi_cbt/app/modules/login/controllers/login_controller.dart';
+import 'package:aplikasi_cbt/app/utils/app_material.dart';
+import 'package:aplikasi_cbt/app/utils/toast_dialog.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:mysql1/mysql1.dart';
 
 class DatabaseService extends GetxService {
   final box = GetStorage();
-  MySqlConnection? _connection;
+  static var canLogin = false.obs;
 
-  Future<MySqlConnection> connect() async {
-    if (_connection != null) return _connection!;
-
+  Future<MySqlConnection> _newConnection() async {
     final settings = ConnectionSettings(
       host: box.read('db_host') ?? 'localhost',
       port: box.read('db_port') ?? 3306,
       user: box.read('db_user') ?? 'root',
       password: box.read('db_pass') ?? '',
       db: box.read('db_name') ?? 'cbt_db',
+      timeout: const Duration(seconds: 5),
     );
 
-    try {
-      _connection = await MySqlConnection.connect(settings);
-      return _connection!;
-    } catch (e) {
-      print("Gagal terhubung ke database: $e");
-      rethrow;
-    }
+    return await MySqlConnection.connect(settings);
   }
 
   Future<bool> testConnection({
@@ -39,19 +35,35 @@ class DatabaseService extends GetxService {
     print('db: "${dbName.trim()}"');
     print('host: "${host.trim()}"');
 
+    MySqlConnection? conn;
+
     try {
-      final conn = await MySqlConnection.connect(ConnectionSettings(
-        host: host,
-        port: port,
-        user: user,
-        password: password,
-        db: dbName,
-      ));
-      await conn.close();
+      conn = await MySqlConnection.connect(
+        ConnectionSettings(
+          host: host,
+          port: port,
+          user: user,
+          password: password,
+          db: dbName,
+          timeout: const Duration(seconds: 5),
+        ),
+      );
+
+      await conn.query('SELECT 1');
+
+      canLogin.value = true;
+      LoginController.allError.value = "";
       return true;
     } catch (e) {
-      print('Ada masalah ketika tes koneksi: $e');
-      rethrow;
+      ToastService.show(AllMaterial.getErrorMessageFromException(e.toString()));
+      LoginController.allError.value =
+          "Ada masalah dengan koneksi, periksa konfigurasi & coba lagi nanti!";
+      print(e);
+      return false;
+    } finally {
+      try {
+        await conn?.close();
+      } catch (_) {}
     }
   }
 
@@ -59,19 +71,19 @@ class DatabaseService extends GetxService {
     String sql, [
     List<Object?>? params,
   ]) async {
-    final conn = _connection ?? await connect();
+    MySqlConnection? conn;
 
     try {
+      conn = await _newConnection();
+
       final results = await conn.query(sql, params ?? []);
-      return results
-          .map((row) => {
-                for (var i = 0; i < row.length; i++)
-                  row.fields.keys.elementAt(i): row[i]
-              })
-          .toList();
+
+      return results.map((row) => row.fields).toList();
     } catch (e) {
-      print(" Error query: $e");
+      print("❌ Error query: $e");
       rethrow;
+    } finally {
+      await conn?.close();
     }
   }
 
@@ -79,19 +91,18 @@ class DatabaseService extends GetxService {
     String sql, [
     List<Object?>? params,
   ]) async {
-    final conn = _connection ?? await connect();
+    MySqlConnection? conn;
 
     try {
-      final results = await conn.query(sql, params ?? []);
-      return results.affectedRows ?? 0;
-    } catch (e) {
-      print(" Error execute: $e");
-      rethrow;
-    }
-  }
+      conn = await _newConnection();
 
-  Future<void> close() async {
-    await _connection?.close();
-    _connection = null;
+      final result = await conn.query(sql, params ?? []);
+      return result.affectedRows ?? 0;
+    } catch (e) {
+      print("❌ Error execute: $e");
+      rethrow;
+    } finally {
+      await conn?.close();
+    }
   }
 }

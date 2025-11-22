@@ -1,8 +1,10 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:aplikasi_cbt/app/controllers/connection_controller.dart';
+import 'package:aplikasi_cbt/app/controllers/general_controller.dart';
 import 'package:aplikasi_cbt/app/controllers/kiosk_controller.dart';
 import 'package:aplikasi_cbt/app/controllers/volume_controller.dart';
+import 'package:aplikasi_cbt/app/modules/login/controllers/login_controller.dart';
 
 import 'package:aplikasi_cbt/app/modules/login/views/login_view.dart';
 import 'package:aplikasi_cbt/app/services/database_service.dart';
@@ -28,7 +30,11 @@ void main() async {
   Get.putAsync(() async => ConnectionService().init());
   Get.putAsync<DatabaseService>(() async => DatabaseService(), permanent: true);
   Get.put(VolumeNativeController(), permanent: true);
+  Get.put(GeneralController());
   await KioskHelper.enableKioskMode();
+
+  AllMaterial.box.write('setting_pass', "12345678");
+
   if (AllMaterial.isDesktop) {
     await windowManager.ensureInitialized();
 
@@ -41,12 +47,19 @@ void main() async {
     );
   } else {
     await AudioPlayer.global.ensureInitialized();
-
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
     ]);
   }
+  final dbService = Get.find<DatabaseService>();
+  final box = AllMaterial.box;
+  final host = box.read('db_host') ?? "192.100.0.254";
+  final port = box.read('db_port') ?? 3306;
+  final user = box.read('db_user') ?? 'cbtclient';
+  final password = box.read('db_pass') ?? '12345678@CBTclient';
+  final dbName = box.read('db_name') ?? 'dbcbt';
 
   await GetStorage.init();
   runApp(
@@ -65,22 +78,12 @@ void main() async {
       },
       home: WillPopScope(
         onWillPop: () async => false,
-        child: LoadingSplashView(
-          title: "Tunggu Sebentar!",
-          animationAsset: 'assets/images/loading.json',
-          onCompleted: () async {
-            try {
-              final config = AllMaterial.box.read("db_config");
-
-              if (config != null) {
-                final dbService = Get.find<DatabaseService>();
-                final box = AllMaterial.box;
-                final host = box.read('db_host') ?? "192.100.0.254";
-                final port = box.read('db_port') ?? 3306;
-                final user = box.read('db_user') ?? 'cbtclient';
-                final password = box.read('db_pass') ?? '12345678@CBTclient';
-                final dbName = box.read('db_name') ?? 'dbcbt';
-
+        child: Builder(builder: (context) {
+          return LoadingSplashView(
+            title: "Tunggu Sebentar!",
+            animationAsset: 'assets/images/loading.json',
+            onCompleted: () async {
+              try {
                 final connected = await dbService.testConnection(
                   host: host,
                   port: port,
@@ -90,26 +93,49 @@ void main() async {
                 );
 
                 if (connected) {
-                  Get.offAll(() => LoginView());
-                  ToastService.show("Koneksi berhasil, silakan login!");
-                } else {
-                  Get.offAll(() => LoginView());
-                  ToastService.show("Koneksi gagal, harap konfigurasi ulang!");
+                  box.write('db_config', "config_success");
+                  box.write('db_server_name', dbName);
+                  box.write('db_host', host);
+                  box.write('db_port', 3306);
+                  box.write('db_user', user);
+                  box.write('db_pass', password);
+                  box.write('db_name', dbName);
                 }
-              } else {
-                ToastService.show(
-                  "Koneksi tidak ditemukan, harap konfigurasi!",
-                );
+
                 Get.offAll(() => LoginView());
+
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) {
+                    AllMaterial.showInfoBottomSheet(
+                      title: connected
+                          ? "Koneksi Berhasil"
+                          : "Sistem tidak dapat mengakses server!",
+                      message: connected
+                          ? "Server berhasil terhubung. Anda bisa melanjutkan ke proses login."
+                          : "Periksa jaringan Anda, atau hubungi operator untuk mendapatkan bantuan.",
+                      icon: connected ? Icons.check : Icons.error,
+                      color: connected ? Colors.greenAccent : Colors.redAccent,
+                      onPressed: () async {
+                        if (connected) {
+                          Get.back();
+                          await Future.delayed(Durations.medium2);
+                          LoginController.startLogin();
+                        } else {
+                          Get.back();
+                        }
+                      },
+                      buttonText: "Tutup",
+                    );
+                  },
+                );
+              } catch (e) {
+                ToastService.show(
+                    AllMaterial.getErrorMessageFromException(e.toString()));
+                print(e.toString());
               }
-            } catch (e) {
-              final errorMessage =
-                  AllMaterial.getErrorMessageFromException(e.toString());
-              ToastService.show(errorMessage);
-              Get.offAll(() => LoginView());
-            }
-          },
-        ),
+            },
+          );
+        }),
       ),
       theme: ThemeData(
         useMaterial3: true,

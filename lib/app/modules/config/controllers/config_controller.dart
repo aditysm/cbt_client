@@ -15,6 +15,9 @@ class ConfigController extends GetxController {
 
   var isLoading = false.obs;
 
+  final showPassword = false.obs;
+  final showSettingsPassword = false.obs;
+
   final hostC = TextEditingController();
   final hostF = FocusNode();
   final portC = TextEditingController();
@@ -35,9 +38,6 @@ class ConfigController extends GetxController {
   final settingPassC = TextEditingController();
   final settingPassF = FocusNode();
 
-  final unlockKeyC = TextEditingController();
-  final unlockKeyF = FocusNode();
-
   final serverNameError = "".obs;
   final userError = "".obs;
   final passError = "".obs;
@@ -45,7 +45,6 @@ class ConfigController extends GetxController {
   final settingPassError = "".obs;
   final hostError = "".obs;
   final portError = "".obs;
-  final unlockKeyError = "".obs;
   final allError = "".obs;
 
   @override
@@ -76,10 +75,6 @@ class ConfigController extends GetxController {
 
     settingPassC.addListener(() {
       if (settingPassC.text.isNotEmpty) settingPassError.value = "";
-    });
-
-    unlockKeyC.addListener(() {
-      if (unlockKeyC.text.isNotEmpty) unlockKeyError.value = "";
     });
   }
 
@@ -123,18 +118,13 @@ class ConfigController extends GetxController {
           box.write('setting_pass', settingPassC.text.trim());
         }
 
-        if (unlockKeyC.text.isNotEmpty) {
-          box.write('unlock_key', unlockKeyC.text.trim());
-        }
-
         testResult.value =
             "Berhasil terhubung ke ${dbNameC.text.isNotEmpty ? dbNameC.text.trim() : "3306"}";
       } else {
-        testResult.value = "Koneksi gagal, silakan periksa konfigurasi Anda!";
+        testResult.value = "Koneksi gagal, silahkan periksa konfigurasi Anda!";
       }
     } catch (e) {
       testResult.value = AllMaterial.getErrorMessageFromException(e.toString());
-      // testResult.value = e.toString();
       isTesting.value = false;
     }
   }

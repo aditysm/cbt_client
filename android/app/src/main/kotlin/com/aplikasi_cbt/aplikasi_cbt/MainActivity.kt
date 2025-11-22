@@ -18,12 +18,7 @@ class MainActivity : FlutterActivity() {
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
-                "enableSecureFlag" -> {
-                    runOnUiThread {
-                        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                    }
-                    result.success(null)
-                }
+                
 
                 "enableStrictKiosk" -> {
                     enableStrictKiosk()
@@ -34,7 +29,12 @@ class MainActivity : FlutterActivity() {
                     enableKioskMode()
                     result.success(null)
                 }
-
+                "enableSecureFlag" -> {
+                    runOnUiThread {
+                        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    }
+                    result.success(null)
+                }
                 "disableSecureFlag" -> {
                     runOnUiThread {
                         window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)

@@ -8,18 +8,21 @@ class FeedbackController extends GetxController {
   var komentarC = TextEditingController();
   final dbService = Get.find<DatabaseService>();
   Future<void> simpanKomentar() async {
-    var kodeUjian = LoginController.dataUjian.value?.kodeUjian ?? "";
-    var nis = LoginController.dataUjian.value?.nis ?? "";
     try {
       final res = await dbService.execute(
         """
       INSERT INTO komentar (NIS, KodeUjian, Komentar)
       VALUES (?, ?, ?)
       """,
-        [nis, kodeUjian, komentarC.text.trim()],
+        [
+          LoginController.dataUjian.value?.nis,
+          LoginController.dataUjian.value?.kodeUjian,
+          komentarC.text.trim()
+        ],
       );
 
       ToastService.show("Feedback berhasil dikirim. Terima kasih!");
+      komentarC.clear();
       print("Komentar berhasil disimpan: $res");
     } catch (e) {
       print("Gagal menyimpan komentar: $e");

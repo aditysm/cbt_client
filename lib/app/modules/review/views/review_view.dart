@@ -1,10 +1,10 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:aplikasi_cbt/app/modules/feedback/views/feedback_view.dart';
+import 'package:aplikasi_cbt/app/modules/login/controllers/login_controller.dart';
 import 'package:aplikasi_cbt/app/utils/app_material.dart';
 import 'package:aplikasi_cbt/app/utils/app_status_bar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../controllers/review_controller.dart';
@@ -23,175 +23,159 @@ class ReviewView extends GetView<ReviewController> {
       controller.loadHasilUjian();
     }
 
-    return RawKeyboardListener(
-      focusNode: FocusNode()..requestFocus(),
-      onKey: (RawKeyEvent event) {
-        if (event is RawKeyDownEvent &&
-            event.logicalKey == LogicalKeyboardKey.enter) {
-          _tutupDialog();
-        }
-      },
-      child: Scaffold(
-        backgroundColor: Colors.grey.shade100,
-        appBar: AppBar(
-          surfaceTintColor: Colors.transparent,
-          centerTitle: true,
-          title: Padding(
-            padding: EdgeInsets.symmetric(horizontal: padding),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Row(
-                  children: [
-                    SizedBox(
-                      height: 30,
-                      child: Image.asset(
-                        "assets/icons/logo-smeda.png",
-                        gaplessPlayback: true,
-                      ),
+    return Scaffold(
+      backgroundColor: Colors.grey.shade100,
+      appBar: AppBar(
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        title: Padding(
+          padding: EdgeInsets.symmetric(horizontal: padding),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  SizedBox(
+                    height: 30,
+                    child: Image.asset(
+                      "assets/icons/logo-smeda.png",
+                      gaplessPlayback: true,
                     ),
-                    const SizedBox(width: 6),
-                    const Text("CBT Client"),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text("CBT Client"),
+                ],
+              ),
+            ],
           ),
         ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 24),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final maxW =
-                            isDesktop ? Get.width * 0.3 : constraints.maxWidth;
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      final maxW =
+                          isDesktop ? Get.width * 0.3 : constraints.maxWidth;
 
-                        return Center(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(maxWidth: maxW),
-                            child: Container(
-                              padding: const EdgeInsets.all(24),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
+                      return Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: maxW),
+                          child: Container(
+                            padding: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  "Review Hasil Ujian",
+                                  textAlign: TextAlign.center,
+                                  style:
+                                      theme.textTheme.headlineSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey[900],
                                   ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Text(
-                                    "Review Hasil Ujian",
-                                    textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 24),
+                                if (!isDesktop)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 24),
+                                    child: _NilaiCard(theme: theme),
+                                  ),
+                                Obx(() {
+                                  final stats = [
+                                    {
+                                      "title": "Jumlah Soal :",
+                                      "value": (LoginController.dataUjian.value
+                                                  ?.jumlahSoal ??
+                                              0)
+                                          .toString()
+                                    },
+                                    {
+                                      "title": "Soal Dijawab :",
+                                      "value": controller.soalDijawab.value
+                                          .toString()
+                                    },
+                                    {
+                                      "title": "Tidak Dijawab :",
+                                      "value": controller.soalTidakDijawab.value
+                                          .toString()
+                                    },
+                                    {
+                                      "title": "Jawaban Benar :",
+                                      "value": controller.jumlahBenar.value
+                                          .toString()
+                                    },
+                                    {
+                                      "title": "Jawaban Salah :",
+                                      "value": controller.jumlahSalah.value
+                                          .toString()
+                                    },
+                                  ];
+
+                                  return Wrap(
+                                    runSpacing: 8,
+                                    children: stats
+                                        .map((s) => _StatRow(
+                                              title: s["title"]!,
+                                              value: s["value"]!,
+                                              theme: theme,
+                                            ))
+                                        .toList(),
+                                  );
+                                }),
+                                const SizedBox(height: 24),
+                                if (isDesktop)
+                                  Align(
+                                    alignment: Alignment.center,
+                                    child: _NilaiCard(theme: theme),
+                                  ),
+                                const SizedBox(height: 30),
+                                ElevatedButton.icon(
+                                  onPressed: _tutupDialog,
+                                  icon: const Icon(Icons.exit_to_app_rounded),
+                                  label: const Text(
+                                    "TUTUP HALAMAN",
                                     style:
-                                        theme.textTheme.headlineSmall?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey[900],
+                                        TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    elevation: 0,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 16, horizontal: 24),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
                                     ),
                                   ),
-                                  const SizedBox(height: 24),
-
-                                  if (!isDesktop)
-                                    Padding(
-                                      padding:
-                                          const EdgeInsets.only(bottom: 24),
-                                      child: _NilaiCard(theme: theme),
-                                    ),
-
-                                  // Statistik
-                                  Obx(() {
-                                    final stats = [
-                                      {
-                                        "title": "Jumlah Soal :",
-                                        "value":
-                                            controller.jumlahSoal.toString()
-                                      },
-                                      {
-                                        "title": "Soal Dijawab :",
-                                        "value": controller.soalDijawab.value
-                                            .toString()
-                                      },
-                                      {
-                                        "title": "Tidak Dijawab :",
-                                        "value": controller
-                                            .soalTidakDijawab.value
-                                            .toString()
-                                      },
-                                      {
-                                        "title": "Jawaban Benar :",
-                                        "value": controller.jumlahBenar.value
-                                            .toString()
-                                      },
-                                      {
-                                        "title": "Jawaban Salah :",
-                                        "value": controller.jumlahSalah.value
-                                            .toString()
-                                      },
-                                    ];
-
-                                    return Wrap(
-                                      runSpacing: 8,
-                                      children: stats
-                                          .map((s) => _StatRow(
-                                                title: s["title"]!,
-                                                value: s["value"]!,
-                                                theme: theme,
-                                              ))
-                                          .toList(),
-                                    );
-                                  }),
-
-                                  const SizedBox(height: 24),
-
-                                  if (isDesktop)
-                                    Align(
-                                      alignment: Alignment.center,
-                                      child: _NilaiCard(theme: theme),
-                                    ),
-
-                                  const SizedBox(height: 30),
-
-                                  ElevatedButton.icon(
-                                    onPressed: _tutupDialog,
-                                    icon: const Icon(Icons.exit_to_app_rounded),
-                                    label: const Text(
-                                      "TUTUP HALAMAN",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.w600),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 16, horizontal: 24),
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
-              const AppStatusBar(role: "Siswa"),
-            ],
-          ),
+            ),
+            const AppStatusBar(role: "Siswa"),
+          ],
         ),
       ),
     );
@@ -201,13 +185,13 @@ class ReviewView extends GetView<ReviewController> {
     AllMaterial.cusDialogValidasi(
       title: "Menutup Hasil",
       subtitle: "Halaman akan ditutup dan tidak bisa diakses lagi. Lanjutkan?",
-      onCancel: () {
+      onConfirm: () {
         Get.offAll(() => const FeedbackView());
       },
-      cancelText: "LANJUT",
-      confirmText: "BATAL",
+      confirmText: "LANJUT",
+      cancelText: "BATAL",
       showCancel: true,
-      onConfirm: () => Get.back(),
+      onCancel: () => Get.back(),
     );
   }
 }

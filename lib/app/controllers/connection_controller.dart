@@ -30,31 +30,32 @@ class ConnectionService extends GetxService {
   Future<ConnectionService> init() async {
     await _checkConnection();
 
-    _subscription =
-        Connectivity().onConnectivityChanged.listen((results) async {
-      connectionResults.assignAll(results);
+    _subscription = Connectivity().onConnectivityChanged.listen(
+      (results) async {
+        connectionResults.assignAll(results);
 
-      bool connected = false;
-      for (var result in results) {
-        if (await _hasInternet(result)) {
-          connected = true;
-          break;
+        bool connected = false;
+        for (var result in results) {
+          if (await _hasInternet(result)) {
+            connected = true;
+            break;
+          }
         }
-      }
 
-      hasConnection.value = connected;
+        hasConnection.value = connected;
 
-      if (!connected && !_isSnackbarShown) {
-        _isSnackbarShown = true;
-        ToastService.show("Tidak ada koneksi internet!");
-      }
+        if (!connected && !_isSnackbarShown) {
+          _isSnackbarShown = true;
+          ToastService.show("Tidak ada koneksi internet!");
+        }
 
-      if (connected && _isSnackbarShown) {
-        Get.closeAllSnackbars();
-        _isSnackbarShown = false;
-      }
-      _updateNetworkInfo();
-    });
+        if (connected && _isSnackbarShown) {
+          Get.closeAllSnackbars();
+          _isSnackbarShown = false;
+        }
+        _updateNetworkInfo();
+      },
+    );
 
     return this;
   }

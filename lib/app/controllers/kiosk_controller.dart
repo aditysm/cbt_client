@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:window_manager/window_manager.dart';
@@ -124,17 +125,57 @@ reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows\Explorer" /v NoWinKeys /f
   }
 
   static Future<void> _disableMobileKiosk() async {
-    await SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-    );
-    await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    try {
+      if (Platform.isAndroid) {
+        try {
+          final res1 = await _channel.invokeMethod<bool>('disableStrictKiosk');
+          debugPrint('disableStrictKiosk returned: $res1');
+        } catch (e, st) {
+          debugPrint('Error disableStrictKiosk: $e\n$st');
+        }
 
-    if (Platform.isAndroid) {
-      await _channel.invokeMethod('disableStrictKiosk');
-      await _channel.invokeMethod('disableSecureFlag');
-    } else if (Platform.isIOS) {
-      await _channel.invokeMethod('disableGuidedAccess');
+        try {
+          final res2 = await _channel.invokeMethod<bool>('disableSecureFlag');
+          debugPrint('disableSecureFlag returned: $res2');
+        } catch (e, st) {
+          debugPrint('Error disableSecureFlag: $e\n$st');
+        }
+
+        await Future.delayed(const Duration(milliseconds: 200));
+      } else if (Platform.isIOS) {
+        try {
+          final res = await _channel.invokeMethod<bool>('disableGuidedAccess');
+          debugPrint(
+              'disableGuidedAccess invoked (note: may be no-op on iOS): $res');
+        } catch (e, st) {
+          debugPrint(
+              'Error invoking disableGuidedAccess (iOS likely no-op): $e\n$st');
+        }
+
+        await Future.delayed(const Duration(milliseconds: 150));
+      }
+
+      try {
+        await SystemChrome.setEnabledSystemUIMode(
+          SystemUiMode.manual,
+          overlays: SystemUiOverlay.values,
+        );
+        debugPrint('System UI overlays restored');
+      } catch (e, st) {
+        debugPrint('Error restoring System UI overlays: $e\n$st');
+      }
+
+      try {
+        await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+        debugPrint('Preferred orientations restored');
+      } catch (e, st) {
+        debugPrint('Error restoring preferred orientations: $e\n$st');
+      }
+
+      await Future.delayed(const Duration(milliseconds: 100));
+      debugPrint('_disableMobileKiosk completed');
+    } catch (e, st) {
+      debugPrint('Unexpected error in _disableMobileKiosk: $e\n$st');
     }
   }
 

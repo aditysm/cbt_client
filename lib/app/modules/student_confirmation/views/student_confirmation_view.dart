@@ -396,20 +396,6 @@ class StudentConfirmationView extends GetView<StudentConfirmationController> {
                                   ),
                                 ),
                               ),
-                              IgnorePointer(
-                                child: TextField(
-                                  controller: TextEditingController(
-                                      text: LoginController
-                                              .dataUjian.value?.namaRuang ??
-                                          ""),
-                                  readOnly: true,
-                                  decoration: _inputDecoration(
-                                    isDesktop: isDesktop,
-                                    label: "Ruang Ujian",
-                                    icon: Icons.meeting_room,
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                           const SizedBox(height: 32),

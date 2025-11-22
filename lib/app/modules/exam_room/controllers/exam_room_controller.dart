@@ -1,10 +1,11 @@
 import 'dart:async';
-import 'package:aplikasi_cbt/app/data/model/data_ujian_model.dart';
+import 'package:aplikasi_cbt/app/controllers/general_controller.dart';
 import 'package:aplikasi_cbt/app/modules/feedback/views/feedback_view.dart';
 import 'package:aplikasi_cbt/app/modules/login/controllers/login_controller.dart';
 import 'package:aplikasi_cbt/app/modules/login/views/login_view.dart';
 import 'package:aplikasi_cbt/app/modules/review/views/review_view.dart';
 import 'package:aplikasi_cbt/app/services/database_service.dart';
+import 'package:aplikasi_cbt/app/utils/app_colors.dart';
 import 'package:aplikasi_cbt/app/utils/app_material.dart';
 import 'package:aplikasi_cbt/app/utils/toast_dialog.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,7 @@ class ExamRoomController extends GetxController {
   final dbService = Get.find<DatabaseService>();
   final jawabanPerSoal = <String, String>{}.obs;
   final raguPerSoal = <String, bool>{}.obs;
+  static var isLoading = false.obs;
 
   final selectedAnswer = ''.obs;
   final soalController = ScrollController();
@@ -28,7 +30,6 @@ class ExamRoomController extends GetxController {
   final isMarkedRagu = false.obs;
   Timer? _timer;
   final timeLeft = 0.obs;
-  late final UserUjian? userUjian;
 
   final itemKeys = <GlobalKey>[];
 
@@ -45,8 +46,14 @@ class ExamRoomController extends GetxController {
       WHERE KodeUjian = ? AND NIS = ?
     """, [kodeUjian, nis]);
 
+      final validSoal = dataSoal.map((s) => s?.kodeSoal.trim() ?? '').toSet();
+
       for (final row in results) {
-        final kodeSoal = row["KodeSoal"].toString();
+        final kodeSoal = row["KodeSoal"]?.toString().trim() ?? '';
+        if (!validSoal.contains(kodeSoal)) {
+          continue;
+        }
+
         final jawaban = row["PilihanJawaban"]?.toString() ?? "";
         final ragu = row["StatusRaguRagu"]?.toString() == "Ragu";
 
@@ -65,7 +72,8 @@ class ExamRoomController extends GetxController {
   void onInit() async {
     super.onInit();
 
-    userUjian = LoginController.dataUjian.value;
+    isLoading.value = true;
+    await syncStatusSiswa();
     final waktuServerResult = await dbService.query(
       "SELECT DATE_FORMAT(SYSDATE(), '%Y-%m-%d %H:%i:%s') AS serverTime",
     );
@@ -102,10 +110,11 @@ class ExamRoomController extends GetxController {
     );
 
     if (modelDurasi == "Flat Time (Mengikuti Waktu Ujian)") {
-      if (userUjian?.waktuDimulaiUjian != null &&
-          userUjian?.waktuBerakhirUjian != null) {
-        final waktuMulai = userUjian!.waktuDimulaiUjian;
-        final waktuBerakhir = userUjian!.waktuBerakhirUjian;
+      if (LoginController.dataUjian.value?.waktuDimulaiUjian != null &&
+          LoginController.dataUjian.value?.waktuBerakhirUjian != null) {
+        final waktuMulai = LoginController.dataUjian.value!.waktuDimulaiUjian;
+        final waktuBerakhir =
+            LoginController.dataUjian.value!.waktuBerakhirUjian;
 
         final totalDurasi = waktuBerakhir.inSeconds - waktuMulai.inSeconds;
 
@@ -118,7 +127,7 @@ class ExamRoomController extends GetxController {
         }
       }
     } else if (modelDurasi == "Start Time (Mengikuti Waktu Login)") {
-      final durasiMenit = userUjian?.durasi ?? 0;
+      final durasiMenit = LoginController.dataUjian.value?.durasi ?? 0;
 
       final waktuLogin = now;
 
@@ -135,75 +144,88 @@ class ExamRoomController extends GetxController {
       if (timeLeft.value > 0) {
         timeLeft.value--;
       } else {
+        print("masuk else");
         finishExam(otomatis: true);
       }
     });
 
     loadSelectedAnswer();
+
+    isLoading.value = false;
   }
 
   Future<void> selectAnswer(String option) async {
-    final soal = dataSoal[currentIndex.value];
-    final kodeSoal = soal?.kodeSoal ?? "";
-
-    final kodeUjian = userUjian?.kodeUjian;
-    final nis = userUjian?.nis;
-
-    if (kodeUjian == null || nis == null) {
-      print("❌ KodeUjian atau NIS null, tidak bisa simpan jawaban");
-      return;
-    }
+    isLoading.value = true;
 
     try {
-      final globalStatus = await dbService.query("""
-    SELECT StatusUjian FROM ujian WHERE KodeUjian = ?
-  """, [kodeUjian]);
+      final soal = dataSoal[currentIndex.value];
+      final kodeSoal = soal?.kodeSoal.trim() ?? '';
 
-      if (globalStatus.isNotEmpty &&
-          globalStatus.first['StatusUjian'] == 'Ujian Selesai') {
-        print("⚠️ Ujian telah ditutup oleh administrator (global).");
-        await finishExam(fromStatus: true, otomatis: true);
+      if (kodeSoal.isEmpty) {
+        print("❌ KodeSoal kosong, tidak bisa simpan jawaban");
         return;
       }
 
-      final siswaStatus = await dbService.query("""
-  SELECT StatusUjianSiswa FROM ujian_detil_siswa
-  WHERE KodeUjian = ? AND NIS = ?
-  LIMIT 1
-""", [kodeUjian, nis]);
+      if (LoginController.dataUjian.value?.kodeUjian == null ||
+          LoginController.dataUjian.value?.nis == null) {
+        print("❌ KodeUjian atau NIS null, tidak bisa simpan jawaban");
+        return;
+      }
 
-      if (siswaStatus.isEmpty) {
-        print("Data siswa belum terdaftar di ujian_detil_siswa ($nis)");
-      } else {
-        final status = siswaStatus.first['StatusUjianSiswa']?.toString() ?? '';
-        print("Status siswa $nis di ujian $kodeUjian: $status");
+      final statusRows = await dbService.query(
+        """
+      SELECT KodeUjian
+      FROM ujian
+      WHERE KodeUjian = ? AND StatusUjian = 'Ujian Selesai'
 
-        if (status.trim().toLowerCase() == 'selesai ujian') {
-          print("Siswa $nis sudah menyelesaikan ujian ini.");
-          await finishExam(fromStatus: true, otomatis: true);
-          return;
-        }
+      UNION ALL
+
+      SELECT KodeUjian
+      FROM ujian_detil_siswa
+      WHERE KodeUjian = ? AND NIS = ? AND StatusUjianSiswa = 'Selesai Ujian'
+    """,
+        [
+          LoginController.dataUjian.value?.kodeUjian,
+          LoginController.dataUjian.value?.kodeUjian,
+          LoginController.dataUjian.value?.nis
+        ],
+      );
+
+      if (statusRows.isNotEmpty) {
+        ToastService.show(
+            "Tidak dapat melanjutkan. Status ujian telah diubah oleh administrator");
+        await Future.delayed(Durations.medium3);
+        await GeneralController.logout(otomatis: true);
+        return;
       }
 
       jawabanPerSoal[kodeSoal] = option;
       selectedAnswer.value = option;
-      print("Soal $kodeSoal jawaban: $option");
-      print("Jumlah jawaban tersimpan: ${jawabanPerSoal.length}");
+
+      if (jawabanPerSoal.length > dataSoal.length) {
+        final validKeys = dataSoal.map((s) => s?.kodeSoal.trim() ?? '').toSet();
+        jawabanPerSoal.removeWhere((key, value) => !validKeys.contains(key));
+      }
 
       final existing = await dbService.query("""
-    SELECT 1 FROM ujian_detil_hasil
-    WHERE KodeUjian = ? AND NIS = ? AND KodeSoal = ?
-  """, [kodeUjian, nis, kodeSoal]);
+      SELECT 1
+      FROM ujian_detil_hasil
+      WHERE KodeUjian = ? AND NIS = ? AND KodeSoal = ?
+    """, [
+        LoginController.dataUjian.value?.kodeUjian,
+        LoginController.dataUjian.value?.nis,
+        kodeSoal
+      ]);
 
       if (existing.isEmpty) {
         await dbService.execute("""
-      INSERT INTO ujian_detil_hasil
-        (KodeUjian, NIS, NomorSoal, KodeSoal, JawabanBenar, PilihanJawaban,
-         StatusRaguRagu, StatusUpload, KeteranganUpload)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, [
-          kodeUjian,
-          nis,
+        INSERT INTO ujian_detil_hasil
+          (KodeUjian, NIS, NomorSoal, KodeSoal, JawabanBenar,
+           PilihanJawaban, StatusRaguRagu, StatusUpload, KeteranganUpload)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      """, [
+          LoginController.dataUjian.value?.kodeUjian,
+          LoginController.dataUjian.value?.nis,
           soal?.nomorUrut,
           kodeSoal,
           soal?.soal?.jawabanBenar,
@@ -212,23 +234,26 @@ class ExamRoomController extends GetxController {
           'Belum',
           '',
         ]);
-        print("✅ Jawaban soal $kodeSoal berhasil disimpan (insert)");
       } else {
-        await dbService.execute("""
-      UPDATE ujian_detil_hasil
-      SET PilihanJawaban = ?, StatusRaguRagu = ?
-      WHERE KodeUjian = ? AND NIS = ? AND KodeSoal = ?
-    """, [
-          option,
-          raguPerSoal[kodeSoal] == true ? 'Ragu' : 'Tidak Ragu',
-          kodeUjian,
-          nis,
-          kodeSoal,
-        ]);
-        print("✅ Jawaban soal $kodeSoal berhasil diupdate");
+        await dbService.execute(
+          """
+        UPDATE ujian_detil_hasil
+        SET PilihanJawaban = ?, StatusRaguRagu = ?
+        WHERE KodeUjian = ? AND NIS = ? AND KodeSoal = ?
+      """,
+          [
+            option,
+            raguPerSoal[kodeSoal] == true ? 'Ragu' : 'Tidak Ragu',
+            LoginController.dataUjian.value?.kodeUjian,
+            LoginController.dataUjian.value?.nis,
+            kodeSoal,
+          ],
+        );
       }
     } catch (e) {
-      print("❌ Error selectAnswer untuk soal $kodeSoal: $e");
+      print("❌ Error selectAnswer: $e");
+    } finally {
+      isLoading.value = false;
     }
   }
 
@@ -258,33 +283,50 @@ class ExamRoomController extends GetxController {
 
   void loadSelectedAnswer() {
     final soal = dataSoal[currentIndex.value];
-    final kodeSoal = soal?.kodeSoal ?? "";
+    final kodeSoal = soal?.kodeSoal.trim();
+
+    if (kodeSoal == null || kodeSoal.isEmpty) return;
 
     selectedAnswer.value = jawabanPerSoal[kodeSoal] ?? '';
     isMarkedRagu.value = raguPerSoal[kodeSoal] ?? false;
 
-    jawabanPerSoal.putIfAbsent(kodeSoal, () => '');
-    raguPerSoal.putIfAbsent(kodeSoal, () => false);
+    if (!jawabanPerSoal.containsKey(kodeSoal)) {
+      jawabanPerSoal[kodeSoal] = '';
+    }
+    if (!raguPerSoal.containsKey(kodeSoal)) {
+      raguPerSoal[kodeSoal] = false;
+    }
 
     print(
         "Soal $kodeSoal loaded: jawaban='${selectedAnswer.value}', ragu=${isMarkedRagu.value}");
   }
 
-  Future<void> finishExam(
-      {bool otomatis = false, bool fromStatus = false}) async {
+  bool isFinishing = false;
+
+  Future<void> finishExam({
+    bool otomatis = false,
+    bool fromStatus = false,
+  }) async {
+    if (isFinishing) {
+      print("⚠️ finishExam sudah berjalan, skip...");
+      return;
+    }
+    isFinishing = true;
+
     _timer?.cancel();
     isExamEnd.value = true;
 
     final kodeUjian = LoginController.dataUjian.value?.kodeUjian;
     final nis = LoginController.dataUjian.value?.nis;
 
-    print("DEBUG UPDATE ujian_detil_siswa => kodeUjian=$kodeUjian, nis=$nis");
-
     if (kodeUjian == null || nis == null) {
       print("❌ kodeUjian atau NIS null, tidak bisa update");
+      isFinishing = false;
       return;
     }
 
+    print("DEBUG finishExam => kodeUjian=$kodeUjian, nis=$nis");
+    isLoading.value = true;
     try {
       await dbService.execute("""
       UPDATE ujian_detil_siswa
@@ -292,57 +334,44 @@ class ExamRoomController extends GetxController {
       WHERE KodeUjian = ? AND NIS = ?
     """, [kodeUjian, nis]);
 
-      print("✅ Update berhasil");
-      var tampilHasil =
-          LoginController.dataUjian.value?.statusTampilHasil ?? "True";
+      print("✅ StatusUjianSiswa diupdate sekali saja");
+
+      final tampilHasil =
+          (LoginController.dataUjian.value?.statusTampilHasil ?? "True")
+              .toLowerCase();
+
       if (otomatis) {
         AllMaterial.cusDialogValidasi(
-          title: "Ujian Telah Selesai",
+          onConfirm: () => Get.back(),
+          title: "Ujian dinyatakan selesai!",
+          showCancel: false,
           subtitle: fromStatus
               ? "Status ujian telah diubah oleh Administrator."
-              : "Waktu ujian sudah habis.\n\n"
-                  "Segala perubahan tidak dapat dilakukan lagi. "
-                  "Silahkan tekan \"AKHIRI\" untuk menyimpan jawaban Anda.",
-          showCancel: false,
+              : "Waktu ujian sudah habis.\nSemua jawaban telah disimpan.",
+          iconColor: fromStatus ? AppColors.warning : Colors.redAccent,
           icon: Icons.lock_clock_outlined,
-          confirmText: "AKHIRI",
-          onConfirm: () async {
-            Get.back();
-            final kodeUjian = LoginController.dataUjian.value?.kodeUjian;
-            final nis = LoginController.dataUjian.value?.nis;
-
-            await dbService.execute("""
-            UPDATE ujian_detil_siswa
-            SET StatusUjianSiswa = 'Selesai Ujian'
-            WHERE KodeUjian = ? AND NIS = ?
-          """, [kodeUjian, nis]);
-
-            if (tampilHasil.toLowerCase().contains("true")) {
-              Get.offAll(() => ReviewView());
-            } else {
-              Get.offAll(() => FeedbackView());
-            }
-            Future.delayed(Duration(milliseconds: 300), () {
-              clearSession();
-            });
-          },
+          confirmText: "Akhiri",
         );
-        return;
       }
-
-      if (tampilHasil.toLowerCase().contains("true")) {
+      if (tampilHasil == "true") {
         Get.offAll(() => ReviewView());
       } else {
         Get.offAll(() => FeedbackView());
       }
-      Future.delayed(Duration(milliseconds: 300), () {
-        clearSession();
-      });
 
+      Future.delayed(
+        const Duration(milliseconds: 500),
+        () {
+          clearSession();
+        },
+      );
       LoginController.dataUjian.value?.statusUjianSiswa = "Selesai Ujian";
       update();
     } catch (e) {
-      print("❌ Error saat update: $e");
+      print("❌ Error finishExam: $e");
+    } finally {
+      isFinishing = false;
+      isLoading.value = false;
     }
   }
 
@@ -426,9 +455,9 @@ class ExamRoomController extends GetxController {
       title: "Logout",
       subtitle:
           "Anda akan keluar dari akun saat ini & kehilangan progres ujian. Lanjutkan?",
-      confirmText: "BATAL",
-      cancelText: "LANJUT",
-      onCancel: () async {
+      cancelText: "BATAL",
+      confirmText: "LANJUT",
+      onConfirm: () async {
         Get.offAll(() => LoginView());
         await Future.delayed(Durations.medium2);
         await Future.microtask(
@@ -436,7 +465,7 @@ class ExamRoomController extends GetxController {
         );
         ToastService.show("Logout berhasil, Sampai jumpa!");
       },
-      onConfirm: () => Get.back(),
+      onCancel: () => Get.back(),
     );
   }
 
@@ -455,5 +484,39 @@ class ExamRoomController extends GetxController {
     currentIndex.value = 0;
     isExamEnd.value = false;
     selectedAnswer.value = "";
+  }
+
+  Future<void> syncStatusSiswa() async {
+    final kodeUjian = LoginController.dataUjian.value?.kodeUjian;
+    final nis = LoginController.dataUjian.value?.nis;
+
+    if (kodeUjian == null || nis == null) return;
+
+    final result = await dbService.query("""
+    SELECT StatusUjianSiswa 
+    FROM ujian_detil_siswa
+    WHERE KodeUjian = ? AND NIS = ?
+    LIMIT 1
+  """, [kodeUjian, nis]);
+
+    if (result.isNotEmpty) {
+      final statusDb = result.first.values.first.toString().trim();
+
+      print("⚠ Sync StatusSiswa dari DB: $statusDb");
+
+      if (statusDb.toLowerCase() == 'selesai ujian' && jawabanPerSoal.isEmpty) {
+        print("⚠ Data DB salah, reset status ke Terdaftar");
+
+        await dbService.execute("""
+        UPDATE ujian_detil_siswa
+        SET StatusUjianSiswa = 'Terdaftar'
+        WHERE KodeUjian = ? AND NIS = ?
+      """, [kodeUjian, nis]);
+
+        LoginController.dataUjian.value?.statusUjianSiswa = 'Terdaftar';
+      } else {
+        LoginController.dataUjian.value?.statusUjianSiswa = statusDb;
+      }
+    }
   }
 }

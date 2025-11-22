@@ -33,7 +33,6 @@ class ConfigView extends GetView<ConfigController> {
       controller.passC.text = password;
       controller.dbNameC.text = dbName;
       controller.settingPassC.text = box.read('setting_pass') ?? '12345678';
-      controller.unlockKeyC.text = box.read('unlock_key') ?? '12345678';
       controller.isLoadingFirst.value = true;
     }
     controller.isTesting.value = false;
@@ -201,13 +200,22 @@ class ConfigView extends GetView<ConfigController> {
                                   controller: controller.passC,
                                   focusNode: controller.passF,
                                   textInputAction: TextInputAction.next,
-                                  obscureText: true,
                                   onChanged: (v) =>
                                       controller.passError.value = "",
+                                  obscureText: !controller.showPassword.value,
                                   decoration: _inputDecoration(
                                     label: 'Password',
                                     icon: Icons.lock_outline,
                                   ).copyWith(
+                                    suffixIcon: IconButton(
+                                      icon: Icon(
+                                        controller.showPassword.value
+                                            ? Icons.visibility
+                                            : Icons.visibility_off,
+                                        color: Colors.black54,
+                                      ),
+                                      onPressed: controller.showPassword.toggle,
+                                    ),
                                     errorText:
                                         controller.passError.value.isEmpty
                                             ? null
@@ -249,40 +257,34 @@ class ConfigView extends GetView<ConfigController> {
                                       ),
                                     ),
                                   SizedBox(height: isDesktop ? 12 : 8),
-                                  Obx(() => TextField(
-                                        controller: controller.settingPassC,
-                                        focusNode: controller.settingPassF,
-                                        onChanged: (v) => controller
-                                            .settingPassError.value = "",
-                                        decoration: _inputDecoration(
-                                          label: 'Settings Password',
-                                          icon: Icons.security,
-                                        ).copyWith(
-                                          errorText: controller.settingPassError
-                                                  .value.isEmpty
-                                              ? null
-                                              : controller
-                                                  .settingPassError.value,
-                                        ),
-                                      )),
-                                  SizedBox(height: isDesktop ? 16 : 8),
                                   Obx(
                                     () => TextField(
-                                      controller: controller.unlockKeyC,
-                                      focusNode: controller.unlockKeyF,
-                                      onChanged: (v) =>
-                                          controller.unlockKeyError.value = "",
+                                      controller: controller.settingPassC,
+                                      focusNode: controller.settingPassF,
+                                      onChanged: (v) => controller
+                                          .settingPassError.value = "",
+                                      obscureText: !controller
+                                          .showSettingsPassword.value,
                                       decoration: _inputDecoration(
-                                        label: 'CBT Unlock Keys',
-                                        icon: Icons.vpn_key_outlined,
+                                        label: 'Settings Password',
+                                        icon: Icons.security,
                                       ).copyWith(
+                                        suffixIcon: IconButton(
+                                          icon: Icon(
+                                            controller
+                                                    .showSettingsPassword.value
+                                                ? Icons.visibility
+                                                : Icons.visibility_off,
+                                            color: Colors.black54,
+                                          ),
+                                          onPressed: controller
+                                              .showSettingsPassword.toggle,
+                                        ),
                                         errorText: controller
-                                                .unlockKeyError.value.isEmpty
+                                                .settingPassError.value.isEmpty
                                             ? null
-                                            : controller.unlockKeyError.value,
+                                            : controller.settingPassError.value,
                                       ),
-                                      onSubmitted: (_) =>
-                                          controller.testAndSave(),
                                     ),
                                   ),
                                 ],
@@ -391,16 +393,10 @@ class ConfigView extends GetView<ConfigController> {
                                         controller.settingPassC.text.trim());
                                   }
 
-                                  if (controller.unlockKeyC.text.isNotEmpty) {
-                                    box.write(
-                                      'unlock_key',
-                                      controller.unlockKeyC.text.trim(),
-                                    );
-                                  }
-
                                   Get.offAll(() => LoginView());
                                 },
                                 child: Text(
+                                  textAlign: TextAlign.center,
                                   "Buka halaman Login",
                                   style: TextStyle(
                                     decoration: TextDecoration.underline,

@@ -5,31 +5,44 @@ class ToastService {
   static void show(
     String message, {
     Duration? duration,
+    Future<void>? autoCloseWhen,
   }) {
     final overlayState =
         Get.overlayContext != null ? Overlay.of(Get.overlayContext!) : null;
 
-    if (overlayState == null) {
-      return;
-    }
+    if (overlayState == null) return;
 
     final theme = Get.theme;
 
     late OverlayEntry entry;
+
+    final toastDuration = duration ??
+        (autoCloseWhen != null
+            ? const Duration(days: 1)
+            : _estimateDuration(message));
+
     entry = OverlayEntry(
       builder: (context) {
         return _AnimatedToast(
           message: message,
           theme: theme,
+          duration: toastDuration,
           onFinish: () {
-            entry.remove();
+            if (entry.mounted) entry.remove();
           },
-          duration: duration ?? _estimateDuration(message),
         );
       },
     );
 
     overlayState.insert(entry);
+
+    if (autoCloseWhen != null) {
+      autoCloseWhen.then((_) {
+        if (entry.mounted) {
+          entry.remove();
+        }
+      });
+    }
   }
 
   static Duration _estimateDuration(String message) {
@@ -63,20 +76,21 @@ class _AnimatedToastState extends State<_AnimatedToast>
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      setState(() {
-        opacity = 1.0;
-      });
+      if (mounted) {
+        setState(() => opacity = 1.0);
+      }
     });
 
     Future.delayed(widget.duration, () {
-      setState(() {
-        opacity = 0.0;
-      });
+      if (mounted) {
+        setState(() => opacity = 0.0);
+      }
     });
 
     Future.delayed(widget.duration + const Duration(milliseconds: 300), () {
-      widget.onFinish();
+      if (mounted) widget.onFinish();
     });
   }
 
