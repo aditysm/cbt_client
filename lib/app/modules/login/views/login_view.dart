@@ -3,7 +3,6 @@
 import 'dart:ui';
 
 import 'package:aplikasi_cbt/app/modules/config/views/config_view.dart';
-import 'package:aplikasi_cbt/app/services/database_service.dart';
 import 'package:aplikasi_cbt/app/utils/app_colors.dart';
 import 'package:aplikasi_cbt/app/utils/app_material.dart';
 import 'package:aplikasi_cbt/app/utils/toast_dialog.dart';
@@ -197,7 +196,7 @@ class LoginView extends GetView<LoginController> {
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                  onPressed: DatabaseService.canLogin.value
+                                  onPressed: AllMaterial.canLogin.value
                                       ? controller.isLoading.value
                                           ? null
                                           : () => controller.login()

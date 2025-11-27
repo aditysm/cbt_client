@@ -1,4 +1,6 @@
-import 'package:aplikasi_cbt/app/services/database_service.dart';
+import 'package:aplikasi_cbt/app/data/api/api_url.dart';
+import 'package:aplikasi_cbt/app/modules/login/controllers/login_controller.dart';
+import 'package:aplikasi_cbt/app/services/http_service.dart';
 import 'package:aplikasi_cbt/app/utils/app_material.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -6,12 +8,11 @@ import 'package:get_storage/get_storage.dart';
 
 class ConfigController extends GetxController {
   final box = GetStorage();
-  final dbService = Get.find<DatabaseService>();
 
   final isLoadingFirst = false.obs;
 
   final host = "".obs;
-  final port = 3306.obs;
+  final port = AllMaterial.port.value.obs;
 
   var isLoading = false.obs;
 
@@ -22,18 +23,6 @@ class ConfigController extends GetxController {
   final hostF = FocusNode();
   final portC = TextEditingController();
   final portF = FocusNode();
-
-  final serverNameC = TextEditingController();
-  final serverNameF = FocusNode();
-
-  final userC = TextEditingController();
-  final userF = FocusNode();
-
-  final passC = TextEditingController();
-  final passF = FocusNode();
-
-  final dbNameC = TextEditingController();
-  final dbNameF = FocusNode();
 
   final settingPassC = TextEditingController();
   final settingPassF = FocusNode();
@@ -51,26 +40,11 @@ class ConfigController extends GetxController {
   void onInit() {
     super.onInit();
 
-    serverNameC.addListener(() {
-      if (serverNameC.text.isNotEmpty) serverNameError.value = "";
-    });
-
-    userC.addListener(() {
-      if (userC.text.isNotEmpty) userError.value = "";
-    });
     hostC.addListener(() {
       if (hostC.text.isNotEmpty) hostError.value = "";
     });
     portC.addListener(() {
       if (portC.text.isNotEmpty) portError.value = "";
-    });
-
-    passC.addListener(() {
-      if (passC.text.isNotEmpty) passError.value = "";
-    });
-
-    dbNameC.addListener(() {
-      if (dbNameC.text.isNotEmpty) dbNameError.value = "";
     });
 
     settingPassC.addListener(() {
@@ -86,45 +60,49 @@ class ConfigController extends GetxController {
     testResult.value = '';
 
     try {
-      final success = await dbService.testConnection(
-        host: hostC.text.isEmpty
-            ? AllMaterial.getDefaultDbHost()
-            : hostC.text.trim(),
-        port: 3306,
-        user: userC.text.trim(),
-        password: passC.text.trim(),
-        dbName: dbNameC.text.trim(),
+      final response = await HttpService.request(
+        url: ApiUrl.testConnection,
+        type: RequestType.get,
+        onStuck: (error) {
+          print("onStuck: $error");
+          testResult.value =
+              AllMaterial.getErrorMessageFromException(error.toString());
+        },
+        onError: (error) {
+          print("onError: $error");
+          testResult.value =
+              AllMaterial.getErrorMessageFromException(error.toString());
+        },
       );
 
-      isTesting.value = false;
-
-      if (success) {
-        box.write('db_config', "config_success");
-        box.write('db_server_name', serverNameC.text.trim());
+      if (response != null &&
+          response["data"] != null &&
+          response["data"].toString().toLowerCase().contains("succes")) {
         box.write(
-            'db_host',
-            hostC.text.isEmpty
-                ? AllMaterial.getDefaultDbHost()
-                : hostC.text.trim());
+          'db_host',
+          hostC.text.trim().isEmpty ? AllMaterial.baseUrl : hostC.text.trim(),
+        );
         box.write(
           'db_port',
-          3306,
+          portC.text.trim().isEmpty
+              ? AllMaterial.port.value
+              : portC.text.trim(),
         );
-        box.write('db_user', userC.text.trim());
-        box.write('db_pass', passC.text.trim());
-        box.write('db_name', dbNameC.text.trim());
+
+        AllMaterial.baseUrl.value = box.read('db_host');
+        AllMaterial.port.value = box.read('db_port');
+        AllMaterial.canLogin.value = true;
+        LoginController.allError.value = "";
 
         if (settingPassC.text.isNotEmpty) {
           box.write('setting_pass', settingPassC.text.trim());
         }
 
-        testResult.value =
-            "Berhasil terhubung ke ${dbNameC.text.isNotEmpty ? dbNameC.text.trim() : "3306"}";
-      } else {
-        testResult.value = "Koneksi gagal, silahkan periksa konfigurasi Anda!";
+        testResult.value = "Berhasil terhubung, silahkan buka halaman Login!";
       }
     } catch (e) {
       testResult.value = AllMaterial.getErrorMessageFromException(e.toString());
+    } finally {
       isTesting.value = false;
     }
   }

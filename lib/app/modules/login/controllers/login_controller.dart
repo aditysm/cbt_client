@@ -1,7 +1,9 @@
-import 'package:aplikasi_cbt/app/data/model/data_ujian_model.dart';
+import 'package:aplikasi_cbt/app/data/api/api_url.dart';
 import 'package:aplikasi_cbt/app/data/model/info_login_model.dart';
+import 'package:aplikasi_cbt/app/modules/exam_confirmation/controllers/exam_confirmation_controller.dart';
+import 'package:aplikasi_cbt/app/modules/student_confirmation/controllers/student_confirmation_controller.dart';
 import 'package:aplikasi_cbt/app/modules/student_confirmation/views/student_confirmation_view.dart';
-import 'package:aplikasi_cbt/app/services/database_service.dart';
+import 'package:aplikasi_cbt/app/services/http_service.dart';
 import 'package:aplikasi_cbt/app/services/network_service.dart';
 import 'package:aplikasi_cbt/app/utils/app_material.dart';
 import 'package:aplikasi_cbt/app/utils/toast_dialog.dart';
@@ -14,11 +16,9 @@ class LoginController extends GetxController {
   static final usernameF = FocusNode();
   final passwordC = TextEditingController();
   final passwordF = FocusNode();
-  final dbService = Get.find<DatabaseService>();
   final showPassword = false.obs;
 
-  static final dataUjian = Rx<UserUjian?>(null);
-  static final infoLogin = Rx<InfoLogin?>(null);
+  static final infoLogin = Rx<InfoLoginModel?>(null);
 
   static void startLogin() {
     usernameF.requestFocus();
@@ -38,21 +38,24 @@ class LoginController extends GetxController {
 
   @override
   void onInit() {
-    usernameC.addListener(() {
-      if (usernameC.text.isNotEmpty) {
-        usernameError.value = '';
-        allError.value = '';
-      }
-    });
-    passwordC.addListener(() {
-      if (passwordC.text.isNotEmpty) {
-        passwordError.value = '';
-        allError.value = '';
-      }
-    });
+    usernameC.addListener(
+      () {
+        if (usernameC.text.isNotEmpty) {
+          usernameError.value = '';
+          allError.value = '';
+        }
+      },
+    );
+    passwordC.addListener(
+      () {
+        if (passwordC.text.isNotEmpty) {
+          passwordError.value = '';
+          allError.value = '';
+        }
+      },
+    );
 
     LoginController.infoLogin.value = null;
-    LoginController.dataUjian.value = null;
     super.onInit();
   }
 
@@ -83,73 +86,53 @@ class LoginController extends GetxController {
   Future<void> login() async {
     usernameF.unfocus();
     passwordF.unfocus();
-    await Future.delayed(Durations.medium2);
     isLoading.value = true;
+    allError.value = "";
+    LoginController.infoLogin.value = null;
+    AllMaterial.box.remove("token");
+    ExamConfirmationController.dataUjian.value = null;
+    ExamConfirmationController.detilSoalUjian.clear();
+    StudentConfirmationController.dataSiswa.value = null;
+    update();
 
     if (!_validateForm()) {
       isLoading.value = false;
       return;
     }
 
-    LoginController.infoLogin.value = null;
-    LoginController.dataUjian.value = null;
-    update();
-
-    await Future.delayed(const Duration(seconds: 2));
-
     try {
-      final test = await dbService.query("SELECT NOW() as waktu;");
-      print("Koneksi DB berhasil: $test");
-      final results = await dbService.query("""
-      select a.KodeUjian,a.NIS,a.Username,a.Password,a.WaktuDimulai,a.WaktuBerakhir,a.StatusUjianSiswa,b.NamaSiswa,b.JenisKelamin,b.Foto,b.ProgramKeahlian,c.NamaUjian,c.ProgramKeahlian as ProgramKeahlianGabung,c.Kelas,c.KodeGuru,c.JumlahSoal,c.JumlahPilihan,c.ModelDurasi,c.Durasi,c.TanggalUjian,c.WaktuDimulai as WaktuDimulaiUjian,c.WaktuBerakhir as WaktuBerakhirUjian,c.StatusAcakSoal,c.StatusUjian,c.StatusTampilHasil,d.NamaMapel from (ujian_detil_siswa a inner join siswa b on a.NIS=b.NIS inner join ujian c on a.KodeUjian=c.KodeUjian inner join mata_pelajaran d on c.KodeMapel=d.KodeMapel) where a.Username= ?
-    """, [usernameC.text.trim()]);
+      final response = await HttpService.request(
+        url: ApiUrl.loginUrl,
+        body: {
+          "username": usernameC.text.trim(),
+          "password": passwordC.text.trim(),
+        },
+        type: RequestType.post,
+        isLogin: true,
+      );
 
-      print(results);
-      print(usernameC.text.trim());
-      print(passwordC.text.trim());
-      final data = results.first;
-
-      final statusUjian = data["StatusUjian"] ?? "";
-
-      if (results.isEmpty) {
-        allError.value = "Username tidak ditemukan";
-        ToastService.show("Username tidak ditemukan");
+      if (response == null) {
+        allError.value = "Login gagal. Server tidak memberikan respon.";
         usernameF.requestFocus();
         return;
-      } else {
-        print("statusUjian: $statusUjian");
-        if (statusUjian == "Menunggu Konfigurasi" ||
-            statusUjian == "Ujian Selesai") {
-          allError.value = "Ujian tidak valid!";
-          ToastService.show("Ujian tidak valid!");
-          usernameF.requestFocus();
-          isLoading.value = false;
-          return;
-        }
-
-        final statusUjianSiswa = data["StatusUjianSiswa"] ?? "";
-        print("statusUjianSiswa: $statusUjianSiswa");
-        if (statusUjianSiswa == "Selesai Ujian") {
-          allError.value = "Username sudah tidak dapat digunakan!";
-          ToastService.show("Username sudah tidak dapat digunakan!");
-          usernameF.requestFocus();
-          isLoading.value = false;
-          return;
-        }
-
-        final pass = data["Password"] ?? "";
-        if ((passwordC.text.trim()) != pass) {
-          allError.value = "Password salah!";
-          ToastService.show("Password salah!");
-          passwordF.requestFocus();
-          isLoading.value = false;
-          return;
-        }
       }
 
-      final firstResult = results.first;
-      print("firstResult: $firstResult");
-      dataUjian.value = UserUjian.fromJson(firstResult);
+      if (response is! Map) {
+        allError.value = "Terjadi kesalahan tak terduga dari server.";
+        return;
+      }
+
+      if (response['access_token'] == null) {
+        allError.value =
+            (response['message'] ?? "Login gagal. Periksa kembali akun Anda.")
+                .toString();
+        usernameF.requestFocus();
+        return;
+      }
+
+      final token = response["access_token"].toString();
+      AllMaterial.box.write("token", token);
+      AllMaterial.token.value = token;
 
       final now = DateTime.now();
       final tanggal =
@@ -157,39 +140,61 @@ class LoginController extends GetxController {
       final waktuLogin =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
-      final kodeUjian = dataUjian.value?.kodeUjian ?? "";
-      final nis = dataUjian.value?.nis ?? "";
-      final username = dataUjian.value?.username ?? "";
-
       await isiKeterangan();
+      await postInfoLogin(tanggal, waktuLogin);
+      await getDateTimeServer();
 
-      await dbService.execute("""
-  INSERT INTO info_login (
-    Tanggal, WaktuLogin, KodeUjian, NIS, Username, Keterangan
-  ) VALUES (?, ?, ?, ?, ?, ?)
-""", [tanggal, waktuLogin, kodeUjian, nis, username, keterangan.value]);
+      if (AllMaterial.dateServer.value.isNotEmpty &&
+          AllMaterial.timeServer.value.isNotEmpty) {
+        AllMaterial.isServerTimeLoaded.value = true;
 
-      infoLogin.value = InfoLogin(
-        tanggal: DateTime.now(),
-        waktuLogin: waktuLogin,
-        kodeUjian: kodeUjian,
-        nis: nis,
-        username: username,
-        keterangan: keterangan.value,
-      );
+        print("SERVER TIME LOADED → OK");
+        ToastService.show("Login berhasil. Selamat datang!");
+        Get.offAll(() => StudentConfirmationView());
+      } else {
+        print("SERVER TIME BELUM TERISI!!");
+      }
 
-      ToastService.show(
-          "Login berhasil. Selamat datang, ${dataUjian.value?.namaSiswa}!");
-      Get.offAll(() => StudentConfirmationView());
       usernameC.clear();
       passwordC.clear();
-      allError.value = "";
     } catch (e) {
+      print("❌ login() error: $e");
       allError.value = AllMaterial.getErrorMessageFromException(e.toString());
     } finally {
       isLoading.value = false;
+      update();
     }
-    update();
+  }
+
+  Future<void> postInfoLogin(
+    String tanggal,
+    String waktuLogin,
+  ) async {
+    var response = await HttpService.request(
+      url: ApiUrl.infoLoginUrl,
+      type: RequestType.post,
+      body: {
+        "tanggal": tanggal,
+        "waktu_login": waktuLogin,
+        "keterangan": keterangan.value,
+      },
+    );
+
+    if (response != null && response["data"] != null) {
+      infoLogin.value = InfoLoginModel.fromJson(response);
+    }
+  }
+
+  Future<void> getDateTimeServer() async {
+    var response = await HttpService.request(
+      url: ApiUrl.getDateTime,
+      type: RequestType.get,
+    );
+
+    if (response != null && response["data"] != null) {
+      AllMaterial.dateServer.value = response["data"]["date"];
+      AllMaterial.timeServer.value = response["data"]["time"];
+    }
   }
 
   Future<void> isiKeterangan() async {

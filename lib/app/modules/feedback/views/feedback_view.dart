@@ -142,6 +142,11 @@ class FeedbackView extends GetView<FeedbackController> {
                               await controller.simpanKomentar();
                               await GeneralController.logout(
                                   fromFeedback: true);
+                              await Future.microtask(
+                                () {
+                                  controller.komentarC.clear();
+                                },
+                              );
                             }
                           },
                           style: ElevatedButton.styleFrom(

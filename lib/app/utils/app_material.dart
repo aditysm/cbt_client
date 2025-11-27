@@ -9,24 +9,48 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:window_manager/window_manager.dart';
 
 abstract class AllMaterial {
   static var box = GetStorage();
 
+  static var dateServer = "".obs;
+  static var timeServer = "".obs;
+  static Rx<DateTime> currentServerDateTime = DateTime.now().obs;
+  static var isServerTimeLoaded = false.obs;
+  static var baseUrl = "192.100.0.254".obs;
+  static var port = "3001".obs;
   static var role = "".obs;
+  static var token = "".obs;
+  static var canLogin = false.obs;
 
   static WindowOptions windowOptions = WindowOptions(
-    title: 'CBT Client',
-    minimumSize: Size(600, 800),
-    center: true,
-    fullScreen: true,
-    titleBarStyle: TitleBarStyle.hidden,
-  );
+      title: 'CBT Client',
+      minimumSize: Size(600, 800),
+      center: true,
+      fullScreen: true,
+      titleBarStyle: TitleBarStyle.hidden);
 
   static bool get isDesktop {
     if (kIsWeb) return false;
     return Platform.isWindows || Platform.isLinux || Platform.isMacOS;
+  }
+
+  static Uint8List? utf16PaddedToBytes(String data) {
+    final bytes = <int>[];
+
+    for (int i = 0; i < data.length; i += 2) {
+      int codeUnit = data.codeUnitAt(i);
+      bytes.add(codeUnit & 0xFF);
+    }
+
+    return Uint8List.fromList(bytes);
+  }
+
+  static String cleanBase64(String input) {
+    final base64RegExp = RegExp(r'[^A-Za-z0-9+/=]');
+    return input.replaceAll(base64RegExp, '');
   }
 
   static void showInfoBottomSheet({
@@ -226,6 +250,7 @@ abstract class AllMaterial {
 
   static void executeExit() async {
     try {
+      WakelockPlus.disable();
       await KioskHelper.disableKioskMode();
       if (Platform.isAndroid) {
         SystemNavigator.pop();

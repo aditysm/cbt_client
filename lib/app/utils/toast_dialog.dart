@@ -1,19 +1,29 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:flutter/services.dart';
 
 class ToastService {
-  static void show(
+  static const MethodChannel _channel = MethodChannel("native_toast");
+
+  static Future<void> show(
     String message, {
     Duration? duration,
     Future<void>? autoCloseWhen,
-  }) {
+  }) async {
+    if (Platform.isAndroid) {
+      try {
+        await _channel.invokeMethod("show", {"message": message});
+        return;
+      } catch (_) {}
+    }
+
     final overlayState =
         Get.overlayContext != null ? Overlay.of(Get.overlayContext!) : null;
 
     if (overlayState == null) return;
 
     final theme = Get.theme;
-
     late OverlayEntry entry;
 
     final toastDuration = duration ??
@@ -38,9 +48,7 @@ class ToastService {
 
     if (autoCloseWhen != null) {
       autoCloseWhen.then((_) {
-        if (entry.mounted) {
-          entry.remove();
-        }
+        if (entry.mounted) entry.remove();
       });
     }
   }
@@ -78,15 +86,11 @@ class _AnimatedToastState extends State<_AnimatedToast>
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() => opacity = 1.0);
-      }
+      if (mounted) setState(() => opacity = 1.0);
     });
 
     Future.delayed(widget.duration, () {
-      if (mounted) {
-        setState(() => opacity = 0.0);
-      }
+      if (mounted) setState(() => opacity = 0.0);
     });
 
     Future.delayed(widget.duration + const Duration(milliseconds: 300), () {

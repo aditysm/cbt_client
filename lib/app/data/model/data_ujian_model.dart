@@ -1,135 +1,163 @@
-import 'package:mysql1/mysql1.dart';
+// To parse this JSON data, do
+//
+//     final dataUjianModel = dataUjianModelFromJson(jsonString);
 
-class UserUjian {
-  final String kodeUjian;
-  final String nis;
-  final String username;
-  final String password;
-  final DateTime tanggal;
-  final Duration waktuDimulai;
-  final Duration waktuBerakhir;
-  String statusUjianSiswa;
-  final String namaSiswa;
-  final String jenisKelamin;
-  final Blob? foto;
-  final String programKeahlian;
-  final String namaUjian;
-  final String programKeahlianGabung;
-  final String kelas;
-  final String kodeGuru;
-  final String namaGuru;
-  final int jumlahSoal;
-  final int jumlahPilihan;
-  final String modelDurasi;
-  final int durasi;
-  final Duration waktuDimulaiUjian;
-  final Duration waktuBerakhirUjian;
-  final String statusAcakSoal;
-  final String statusUjian;
-  final String statusTampilHasil;
-  final String namaMapel;
-  final String namaRuang;
+import 'dart:convert';
 
-  UserUjian({
-    required this.kodeUjian,
-    required this.nis,
-    required this.tanggal,
-    required this.namaRuang,
-    required this.username,
-    required this.namaGuru,
-    required this.password,
-    required this.waktuDimulai,
-    required this.waktuBerakhir,
-    required this.statusUjianSiswa,
-    required this.waktuDimulaiUjian,
-    required this.namaSiswa,
-    required this.jenisKelamin,
-    this.foto,
-    required this.programKeahlian,
-    required this.namaUjian,
-    required this.programKeahlianGabung,
-    required this.kelas,
-    required this.kodeGuru,
-    required this.jumlahSoal,
-    required this.jumlahPilihan,
-    required this.modelDurasi,
-    required this.durasi,
-    required this.waktuBerakhirUjian,
-    required this.statusAcakSoal,
-    required this.statusUjian,
-    required this.statusTampilHasil,
-    required this.namaMapel,
+DataUjianModel dataUjianModelFromJson(String str) =>
+    DataUjianModel.fromJson(json.decode(str));
+
+String dataUjianModelToJson(DataUjianModel data) => json.encode(data.toJson());
+
+class DataUjianModel {
+  String? message;
+  Data? data;
+
+  DataUjianModel({
+    this.message,
+    this.data,
   });
 
-  factory UserUjian.fromJson(Map<String, dynamic> json) {
-    return UserUjian(
-      kodeUjian: json['KodeUjian'] ?? "",
-      nis: json['NIS'] ?? "",
-      waktuDimulaiUjian: json['WaktuDimulaiUjian'] ?? Duration(),
-      username: json['Username'] ?? "",
-      password: json['Password'] ?? "",
-      tanggal: json['TanggalUjian'] ?? "",
-      namaGuru: json['NamaGuru'] ?? "",
-      waktuDimulai: json['WaktuDimulai'] ?? Duration(),
-      waktuBerakhir: json['WaktuBerakhir'] ?? Duration(),
-      statusUjianSiswa: json['StatusUjianSiswa'] ?? "",
-      namaSiswa: json['NamaSiswa'] ?? "",
-      jenisKelamin: json['JenisKelamin'] ?? "",
-      foto: json['Foto'] ?? Blob,
-      programKeahlian: json['ProgramKeahlian'] ?? "",
-      namaUjian: json['NamaUjian'] ?? "",
-      programKeahlianGabung: json['ProgramKeahlianGabung'] ?? "",
-      kelas: json['Kelas'] ?? "",
-      kodeGuru: json['KodeGuru'] ?? "",
-      jumlahSoal: json['JumlahSoal'] ?? 0,
-      jumlahPilihan: json['JumlahPilihan'] ?? 0,
-      modelDurasi: json['ModelDurasi'] ?? "",
-      durasi: json['Durasi'] ?? Duration(),
-      waktuBerakhirUjian: json['WaktuBerakhirUjian'] ?? Duration(),
-      statusAcakSoal: json['StatusAcakSoal'] ?? "",
-      statusUjian: json['StatusUjian'] ?? "",
-      statusTampilHasil: json['StatusTampilHasil'] ?? "",
-      namaMapel: json['NamaMapel'] ?? "",
-      namaRuang: json['NamaRuang'] ?? "",
-    );
-  }
+  factory DataUjianModel.fromJson(Map<String, dynamic> json) => DataUjianModel(
+        message: json["message"],
+        data: json["data"] == null ? null : Data.fromJson(json["data"]),
+      );
 
-  Map<String, dynamic> toJson() {
-    return {
-      'KodeUjian': kodeUjian,
-      'NIS': nis,
-      'Username': username,
-      'Password': password,
-      'WaktuDimulai': waktuDimulai,
-      'WaktuBerakhir': waktuBerakhir,
-      'StatusUjianSiswa': statusUjianSiswa,
-      'NamaSiswa': namaSiswa,
-      'TanggalUjian': tanggal,
-      'NamaGuru': namaGuru,
-      'JenisKelamin': jenisKelamin,
-      'Foto': foto,
-      'ProgramKeahlian': programKeahlian,
-      'WaktuDimulaiUjian': waktuDimulaiUjian,
-      'NamaUjian': namaUjian,
-      'ProgramKeahlianGabung': programKeahlianGabung,
-      'Kelas': kelas,
-      'KodeGuru': kodeGuru,
-      'JumlahSoal': jumlahSoal,
-      'JumlahPilihan': jumlahPilihan,
-      'ModelDurasi': modelDurasi,
-      'Durasi': durasi,
-      'WaktuBerakhirUjian': waktuBerakhirUjian,
-      'StatusAcakSoal': statusAcakSoal,
-      'StatusUjian': statusUjian,
-      'StatusTampilHasil': statusTampilHasil,
-      'NamaMapel': namaMapel,
-      'NamaRuang': namaRuang,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        "message": message,
+        "data": data?.toJson(),
+      };
+}
 
-  String get tanggalUjianFormatted {
-    return "${tanggal.day.toString().padLeft(2, '0')}/"
-        "${tanggal.month.toString().padLeft(2, '0')}/"
-        "${tanggal.year}";
-  }
+class Data {
+  String? kodeUjian;
+  DateTime? tanggal;
+  String? namaUjian;
+  String? tahunAjaran;
+  String? semester;
+  String? kodeMapel;
+  String? programKeahlian;
+  String? kelas;
+  String? kodeGuru;
+  int? jumlahSoal;
+  int? jumlahPilihan;
+  String? modelDurasi;
+  int? durasi;
+  DateTime? tanggalUjian;
+  String? waktuDimulai;
+  String? waktuBerakhir;
+  String? statusAcakSoal;
+  String? statusUjian;
+  String? statusTampilHasil;
+  String? namaRuang;
+  int? sesi;
+  String? transaksiOleh;
+  Mapel? mapel;
+
+  Data({
+    this.kodeUjian,
+    this.tanggal,
+    this.namaUjian,
+    this.tahunAjaran,
+    this.semester,
+    this.kodeMapel,
+    this.programKeahlian,
+    this.kelas,
+    this.kodeGuru,
+    this.jumlahSoal,
+    this.jumlahPilihan,
+    this.modelDurasi,
+    this.durasi,
+    this.tanggalUjian,
+    this.waktuDimulai,
+    this.waktuBerakhir,
+    this.statusAcakSoal,
+    this.statusUjian,
+    this.statusTampilHasil,
+    this.namaRuang,
+    this.sesi,
+    this.transaksiOleh,
+    this.mapel,
+  });
+
+  factory Data.fromJson(Map<String, dynamic> json) => Data(
+        kodeUjian: json["kode_ujian"],
+        tanggal:
+            json["tanggal"] == null ? null : DateTime.parse(json["tanggal"]),
+        namaUjian: json["nama_ujian"],
+        tahunAjaran: json["tahun_ajaran"],
+        semester: json["semester"],
+        kodeMapel: json["kode_mapel"],
+        programKeahlian: json["program_keahlian"],
+        kelas: json["kelas"],
+        kodeGuru: json["kode_guru"],
+        jumlahSoal: json["jumlah_soal"],
+        jumlahPilihan: json["jumlah_pilihan"],
+        modelDurasi: json["model_durasi"],
+        durasi: json["durasi"],
+        tanggalUjian: json["tanggal_ujian"] == null
+            ? null
+            : DateTime.parse(json["tanggal_ujian"]),
+        waktuDimulai: json["waktu_dimulai"],
+        waktuBerakhir: json["waktu_berakhir"],
+        statusAcakSoal: json["status_acak_soal"],
+        statusUjian: json["status_ujian"],
+        statusTampilHasil: json["status_tampil_hasil"],
+        namaRuang: json["nama_ruang"],
+        sesi: json["sesi"],
+        transaksiOleh: json["transaksi_oleh"],
+        mapel: json["mapel"] == null ? null : Mapel.fromJson(json["mapel"]),
+      );
+
+  Map<String, dynamic> toJson() => {
+        "kode_ujian": kodeUjian,
+        "tanggal":
+            "${tanggal!.year.toString().padLeft(4, '0')}-${tanggal!.month.toString().padLeft(2, '0')}-${tanggal!.day.toString().padLeft(2, '0')}",
+        "nama_ujian": namaUjian,
+        "tahun_ajaran": tahunAjaran,
+        "semester": semester,
+        "kode_mapel": kodeMapel,
+        "program_keahlian": programKeahlian,
+        "kelas": kelas,
+        "kode_guru": kodeGuru,
+        "jumlah_soal": jumlahSoal,
+        "jumlah_pilihan": jumlahPilihan,
+        "model_durasi": modelDurasi,
+        "durasi": durasi,
+        "tanggal_ujian":
+            "${tanggalUjian!.year.toString().padLeft(4, '0')}-${tanggalUjian!.month.toString().padLeft(2, '0')}-${tanggalUjian!.day.toString().padLeft(2, '0')}",
+        "waktu_dimulai": waktuDimulai,
+        "waktu_berakhir": waktuBerakhir,
+        "status_acak_soal": statusAcakSoal,
+        "status_ujian": statusUjian,
+        "status_tampil_hasil": statusTampilHasil,
+        "nama_ruang": namaRuang,
+        "sesi": sesi,
+        "transaksi_oleh": transaksiOleh,
+        "mapel": mapel?.toJson(),
+      };
+}
+
+class Mapel {
+  String? kodeMapel;
+  String? namaMapel;
+  String? keterangan;
+
+  Mapel({
+    this.kodeMapel,
+    this.namaMapel,
+    this.keterangan,
+  });
+
+  factory Mapel.fromJson(Map<String, dynamic> json) => Mapel(
+        kodeMapel: json["kode_mapel"],
+        namaMapel: json["nama_mapel"],
+        keterangan: json["keterangan"],
+      );
+
+  Map<String, dynamic> toJson() => {
+        "kode_mapel": kodeMapel,
+        "nama_mapel": namaMapel,
+        "keterangan": keterangan,
+      };
 }

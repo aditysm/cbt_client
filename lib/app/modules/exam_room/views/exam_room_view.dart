@@ -3,11 +3,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:aplikasi_cbt/app/controllers/general_controller.dart';
 import 'package:aplikasi_cbt/app/data/model/data_ujian_model.dart';
-import 'package:aplikasi_cbt/app/data/model/detil_soal_ujian_model.dart';
+import 'package:aplikasi_cbt/app/data/model/soal_with_jawaban.dart';
 import 'package:aplikasi_cbt/app/modules/exam_confirmation/controllers/exam_confirmation_controller.dart';
-import 'package:aplikasi_cbt/app/modules/login/controllers/login_controller.dart';
+import 'package:aplikasi_cbt/app/modules/student_confirmation/controllers/student_confirmation_controller.dart';
 import 'package:aplikasi_cbt/app/utils/app_colors.dart';
+import 'package:aplikasi_cbt/app/utils/app_material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -20,16 +22,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
 
 import 'package:get/get.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../controllers/exam_room_controller.dart';
-
-final controller = Get.put(ExamRoomController());
 
 class ExamRoomView extends GetView<ExamRoomController> {
   const ExamRoomView({super.key});
   @override
   Widget build(BuildContext context) {
+    final controller = Get.put(ExamRoomController());
     final isDesktop = MediaQuery.of(context).size.width > 1005;
     final padding = isDesktop ? 100.0 : 26.0;
     final theme = Theme.of(context);
@@ -40,163 +42,237 @@ class ExamRoomView extends GetView<ExamRoomController> {
 
     return Obx(
       () {
-        final dataSoal = ExamConfirmationController.detilSoalUjian;
-        final ujian = LoginController.dataUjian.value;
-        var foto = ujian?.foto;
+        final dataSoal = controller.dataSoal;
+        final ujian = ExamConfirmationController.dataUjian.value;
+        var foto = StudentConfirmationController.dataSiswa.value?.data?.foto;
+        var isLoading = ExamRoomController.isLoading.value;
 
         Uint8List? fotoBytes;
+
         if (foto != null) {
-          fotoBytes = Uint8List.fromList(foto.toBytes());
+          try {
+            final raw = List<int>.from(foto);
+
+            final bytes = <int>[];
+
+            for (int i = 0; i < raw.length; i += 2) {
+              bytes.add(raw[i]);
+            }
+
+            fotoBytes = Uint8List.fromList(bytes);
+          } catch (e) {
+            print("❌ Error decoding foto: $e");
+          }
         }
-        if (dataSoal.isEmpty) return SizedBox.shrink();
+
+        print("dataSoal.length: ${dataSoal.length}");
+
+        if (dataSoal.isEmpty && !isLoading) {
+          return Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.library_books_outlined,
+                      size: 60,
+                      color: Colors.grey.shade500,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "Tidak ada soal tersedia",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      "Silakan periksa koneksi atau coba muat ulang.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: 180,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 14,
+                          ),
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text(
+                          "Muat Ulang",
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        onPressed: () async {
+                          await controller.loadDataFromApi();
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    TextButton(
+                      onPressed: () async {
+                        await GeneralController.logout();
+                      },
+                      child: Text(
+                        "Logout",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.red.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
 
         final total = dataSoal.length;
         var currentIndex = controller.currentIndex.value;
-        return RawKeyboardListener(
-          focusNode: FocusNode()..requestFocus(),
-          onKey: (RawKeyEvent event) {
-            if (event is RawKeyDownEvent &&
-                event.logicalKey == LogicalKeyboardKey.enter) {
-              if ((controller.selectedAnswer.isNotEmpty &&
-                      controller.isMarkedRagu.isFalse) ||
-                  (controller.selectedAnswer.isNotEmpty &&
-                      controller.isMarkedRagu.value)) {
-                if (currentIndex < total - 1) {
-                  controller.nextQuestion();
-                }
-              }
-            } else if (event is RawKeyDownEvent &&
-                event.logicalKey == LogicalKeyboardKey.arrowRight) {
-              if (currentIndex < total - 1) {
-                controller.nextQuestion();
-              }
-            } else if (event is RawKeyDownEvent &&
-                event.logicalKey == LogicalKeyboardKey.arrowLeft) {
-              if (currentIndex > 0) {
-                controller.previousQuestion();
-              }
-            }
-          },
-          child: Scaffold(
-            appBar: AppBar(
-              surfaceTintColor: Colors.transparent,
-              centerTitle: true,
-              toolbarHeight: kToolbarHeight + 20,
-              title: Padding(
-                padding:
-                    EdgeInsets.symmetric(horizontal: isDesktop ? padding : 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        SizedBox(
-                          height: 30,
-                          child: Image.asset(
-                            "assets/icons/logo-smeda.png",
-                            gaplessPlayback: true,
-                          ),
+        return Scaffold(
+          appBar: AppBar(
+            surfaceTintColor: Colors.transparent,
+            centerTitle: true,
+            toolbarHeight: kToolbarHeight + 20,
+            title: Padding(
+              padding:
+                  EdgeInsets.symmetric(horizontal: isDesktop ? padding : 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      SizedBox(
+                        height: 30,
+                        child: Image.asset(
+                          "assets/icons/logo-smeda.png",
+                          gaplessPlayback: true,
                         ),
-                        const SizedBox(width: 6),
-                        const Text("CBT Client"),
-                      ],
-                    ),
-                    (!isDesktop)
-                        ? Row(
-                            children: [
-                              if (isDesktop)
-                                Text(
-                                  "Sisa Waktu : ",
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              const SizedBox(width: 8),
-                              Obx(
-                                () => Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    color: controller.isExamEnd.value
-                                        ? Colors.red.shade100
-                                        : Colors.green.shade100,
-                                  ),
-                                  child: Obx(() {
-                                    final remainingSeconds =
-                                        controller.timeLeft.value;
-
-                                    final hours = (remainingSeconds ~/ 3600)
-                                        .toString()
-                                        .padLeft(2, '0');
-                                    final minutes =
-                                        ((remainingSeconds % 3600) ~/ 60)
-                                            .toString()
-                                            .padLeft(2, '0');
-                                    final seconds = (remainingSeconds % 60)
-                                        .toString()
-                                        .padLeft(2, '0');
-
-                                    return Text(
-                                      "$hours:$minutes:$seconds",
-                                      style:
-                                          theme.textTheme.titleMedium?.copyWith(
-                                        color: controller.isExamEnd.value
-                                            ? Colors.red
-                                            : Colors.green,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    );
-                                  }),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text("CBT Client"),
+                    ],
+                  ),
+                  (!isDesktop)
+                      ? Row(
+                          children: [
+                            if (isDesktop)
+                              Text(
+                                "Sisa Waktu : ",
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                            ],
-                          )
-                        : Row(
-                            children: [
-                              SizedBox(
-                                width: 250,
-                                child: InkWell(
+                            const SizedBox(width: 8),
+                            Obx(
+                              () => Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
-                                  onTap: () {
-                                    menuKey.currentState?.showButtonMenu();
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 14, vertical: 12),
-                                    child: Row(
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 20,
-                                          backgroundColor: Colors.blue.shade100,
-                                          child: fotoBytes != null
-                                              ? ClipOval(
-                                                  child: Image.memory(
-                                                    fotoBytes,
-                                                    width: 80,
-                                                    height: 80,
-                                                    fit: BoxFit.cover,
-                                                    errorBuilder:
-                                                        (_, __, ___) => Icon(
-                                                      Icons.person,
-                                                      size: 24,
-                                                      color:
-                                                          Colors.blue.shade700,
-                                                    ),
+                                  color: controller.isExamEnd.value
+                                      ? Colors.red.shade100
+                                      : Colors.green.shade100,
+                                ),
+                                child: Obx(() {
+                                  final remainingSeconds =
+                                      controller.timeLeft.value;
+
+                                  final hours = (remainingSeconds ~/ 3600)
+                                      .toString()
+                                      .padLeft(2, '0');
+                                  final minutes =
+                                      ((remainingSeconds % 3600) ~/ 60)
+                                          .toString()
+                                          .padLeft(2, '0');
+                                  final seconds = (remainingSeconds % 60)
+                                      .toString()
+                                      .padLeft(2, '0');
+
+                                  return Text(
+                                    "$hours:$minutes:$seconds",
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
+                                      color: controller.isExamEnd.value
+                                          ? Colors.red
+                                          : Colors.green,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  );
+                                }),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            SizedBox(
+                              width: 250,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: () {
+                                  menuKey.currentState?.showButtonMenu();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 12),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 20,
+                                        backgroundColor: Colors.blue.shade100,
+                                        child: fotoBytes != null
+                                            ? ClipOval(
+                                                child: Image.memory(
+                                                  fotoBytes,
+                                                  width: 80,
+                                                  height: 80,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      Icon(
+                                                    Icons.person,
+                                                    size: 24,
+                                                    color: Colors.blue.shade700,
                                                   ),
-                                                )
-                                              : Icon(Icons.person,
-                                                  size: 24,
-                                                  color: Colors.blue.shade700),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                LoginController.dataUjian.value
+                                                ),
+                                              )
+                                            : Icon(Icons.person,
+                                                size: 24,
+                                                color: Colors.blue.shade700),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Obx(
+                                              () => Text(
+                                                StudentConfirmationController
+                                                        .dataSiswa
+                                                        .value
+                                                        ?.data
                                                         ?.namaSiswa ??
                                                     "-",
                                                 style: Theme.of(context)
@@ -210,9 +286,11 @@ class ExamRoomView extends GetView<ExamRoomController> {
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                "NIS: ${LoginController.dataUjian.value?.nis ?? "-"}",
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Obx(
+                                              () => Text(
+                                                "NIS: ${StudentConfirmationController.dataSiswa.value?.data?.nis ?? "-"}",
                                                 style: Theme.of(context)
                                                     .textTheme
                                                     .bodySmall
@@ -222,531 +300,560 @@ class ExamRoomView extends GetView<ExamRoomController> {
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
-                                            ],
-                                          ),
-                                        ),
-                                        const Icon(
-                                          Icons.keyboard_arrow_down_rounded,
-                                          color: Colors.black54,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Opacity(
-                                opacity: 0,
-                                child: PopupMenuButton<String>(
-                                  key: menuKey,
-                                  enabled: false,
-                                  icon: null,
-                                  tooltip: "",
-                                  iconColor: Colors.transparent,
-                                  itemBuilder: (context) => [
-                                    const PopupMenuItem(
-                                      value: "logout",
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.logout,
-                                              color: Colors.redAccent,
-                                              size: 20),
-                                          SizedBox(width: 8),
-                                          Text("Logout",
-                                              style: TextStyle(
-                                                  fontWeight: FontWeight.w600)),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                  onSelected: (value) {
-                                    if (value == "logout") {
-                                      controller.logout();
-                                    }
-                                  },
-                                ),
-                              ),
-                            ],
-                          )
-                  ],
-                ),
-              ),
-            ),
-            drawer: isDesktop
-                ? null
-                : Drawer(
-                    shape:
-                        RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                    child: SafeArea(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 12),
-                            child: Row(
-                              children: [
-                                CircleAvatar(
-                                  radius: 24,
-                                  backgroundColor: Colors.blue.shade100,
-                                  child: fotoBytes != null
-                                      ? ClipOval(
-                                          child: Image.memory(
-                                            fotoBytes,
-                                            width: 80,
-                                            height: 80,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) => Icon(
-                                                Icons.person,
-                                                size: 24,
-                                                color: Colors.blue.shade700),
-                                          ),
-                                        )
-                                      : Icon(Icons.person,
-                                          size: 24,
-                                          color: Colors.blue.shade700),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        LoginController
-                                                .dataUjian.value?.namaSiswa ??
-                                            "-",
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.black87,
                                             ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                          ],
+                                        ),
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        "NIS: ${LoginController.dataUjian.value?.nis ?? "-"}",
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: Colors.black54,
-                                            ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                      const Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        color: Colors.black54,
                                       ),
                                     ],
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          Divider(color: Colors.grey.shade300, thickness: 1),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Informasi Ujian",
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                _buildSummaryCard(Icons.question_answer,
-                                    "Jumlah Soal: ${ujian?.jumlahSoal ?? ""}"),
-                                _buildSummaryCard(Icons.school,
-                                    "Kelas: ${ujian?.kelas ?? ""}"),
-                                _buildSummaryCard(Icons.work,
-                                    "Program Keahlian: ${ujian?.programKeahlianGabung ?? ""}"),
-                                const SizedBox(height: 16),
-                              ],
-                            ),
-                          ),
-                          Spacer(),
-                          Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                Get.back();
-                                controller.logout();
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primaryRed,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 16),
-                                fixedSize: Size.fromWidth(Get.width),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                elevation: 0,
-                              ),
-                              icon: const Icon(Icons.logout, size: 20),
-                              label: const Text(
-                                "Logout",
-                                style: TextStyle(fontWeight: FontWeight.w600),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-            body: Column(
-              children: [
-                Expanded(
-                  child: isDesktop
-                      ? Padding(
-                          padding: EdgeInsets.fromLTRB(padding, 25, padding, 0),
-                          child: Column(
-                            children: [
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 4,
-                                      child: _buildQuestionArea(
-                                        theme,
-                                        isDesktop,
-                                        dataSoal[controller.currentIndex.value],
-                                      ),
-                                    ),
-                                    SizedBox(width: 25),
-                                    Expanded(
-                                      child:
-                                          _sideBarArea(theme, ujian, dataSoal),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(
-                                height: 25,
-                              ),
-                              _buildAnswerBottomArea(
-                                theme,
-                                isDesktop,
-                                dataSoal[controller.currentIndex.value],
-                                currentIndex,
-                                total,
-                              ),
-                            ],
-                          ),
-                        )
-                      : Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: isDesktop ? 16 : 0,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Padding(
-                                    padding: EdgeInsets.symmetric(
-                                      vertical: isDesktop ? 8 : 0,
-                                      horizontal: 16,
-                                    ),
+                            Opacity(
+                              opacity: 0,
+                              child: PopupMenuButton<String>(
+                                key: menuKey,
+                                enabled: false,
+                                icon: null,
+                                tooltip: "",
+                                iconColor: Colors.transparent,
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: "logout",
                                     child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text(
-                                          "${controller.currentIndex.value + 1} dari ${LoginController.dataUjian.value?.jumlahSoal ?? "0"} Soal",
-                                          style: theme.textTheme.titleMedium
-                                              ?.copyWith(
-                                            fontWeight: FontWeight.bold,
+                                        Icon(Icons.logout,
+                                            color: Colors.redAccent, size: 20),
+                                        SizedBox(width: 8),
+                                        Text("Logout",
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                onSelected: (value) async {
+                                  if (value == "logout") {
+                                    await GeneralController.logout();
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        )
+                ],
+              ),
+            ),
+          ),
+          drawer: ExamRoomController.isLoading.value
+              ? SizedBox.shrink()
+              : isDesktop
+                  ? null
+                  : Drawer(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.zero),
+                      child: SafeArea(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: Colors.blue.shade100,
+                                    child: fotoBytes != null
+                                        ? ClipOval(
+                                            child: Image.memory(
+                                              fotoBytes,
+                                              width: 80,
+                                              height: 80,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  Icon(Icons.person,
+                                                      size: 24,
+                                                      color:
+                                                          Colors.blue.shade700),
+                                            ),
+                                          )
+                                        : Icon(Icons.person,
+                                            size: 24,
+                                            color: Colors.blue.shade700),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Obx(
+                                          () => Text(
+                                            StudentConfirmationController
+                                                    .dataSiswa
+                                                    .value
+                                                    ?.data
+                                                    ?.namaSiswa ??
+                                                "-",
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.black87,
+                                                ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
-                                        Padding(
-                                          padding: EdgeInsets.symmetric(
-                                              vertical: 8, horizontal: 4),
-                                          child: ElevatedButton.icon(
-                                            onPressed: controller
-                                                    .semuaTerjawab()
-                                                ? () {
-                                                    controller.confirmEndExam();
-                                                  }
-                                                : null,
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  Colors.green.shade700,
-                                              foregroundColor: Colors.white,
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 14),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              elevation: 0,
-                                            ),
-                                            icon: const Icon(
-                                                Icons.check_circle_outline,
-                                                size: 20),
-                                            label: const Text(
-                                              "Akhiri Ujian",
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
+                                        const SizedBox(height: 2),
+                                        Obx(
+                                          () => Text(
+                                            "NIS: ${StudentConfirmationController.dataSiswa.value?.data?.nis ?? "-"}",
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: Colors.black54,
+                                                ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
-                                  SizedBox(height: isDesktop ? 16 : 0),
-                                  Padding(
-                                    padding: EdgeInsets.fromLTRB(
-                                        16, 0, 16, isDesktop ? 4 : 2),
-                                    child: Scrollbar(
-                                      controller: controller.soalController,
-                                      thumbVisibility: true,
-                                      child: SingleChildScrollView(
-                                        clipBehavior: Clip.none,
+                                ],
+                              ),
+                            ),
+                            Divider(color: Colors.grey.shade300, thickness: 1),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Informasi Ujian",
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _buildSummaryCard(Icons.book,
+                                      "Mata Pelajaran: ${ujian?.data?.mapel?.namaMapel ?? ""}"),
+                                  _buildSummaryCard(Icons.question_answer,
+                                      "Jumlah Soal: ${ujian?.data?.jumlahSoal ?? ""}"),
+                                  _buildSummaryCard(Icons.school,
+                                      "Kelas: ${ujian?.data?.kelas ?? ""}"),
+                                  _buildSummaryCard(Icons.work,
+                                      "Program Keahlian: ${ujian?.data?.programKeahlian ?? ""}"),
+                                  const SizedBox(height: 16),
+                                ],
+                              ),
+                            ),
+                            Spacer(),
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  Get.back();
+                                  await GeneralController.logout();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primaryRed,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 16),
+                                  fixedSize: Size.fromWidth(Get.width),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                icon: const Icon(Icons.logout, size: 20),
+                                label: const Text(
+                                  "Logout",
+                                  style: TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+          body: Obx(
+            () {
+              if (ExamRoomController.isLoading.value) {
+                return _buildShimmerSoal();
+              }
+              return Column(
+                children: [
+                  Expanded(
+                    child: isDesktop
+                        ? Padding(
+                            padding:
+                                EdgeInsets.fromLTRB(padding, 25, padding, 0),
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 4,
+                                        child: _buildQuestionArea(
+                                          theme,
+                                          isDesktop,
+                                          dataSoal[
+                                              controller.currentIndex.value],
+                                        ),
+                                      ),
+                                      SizedBox(width: 25),
+                                      Expanded(
+                                        child: _sideBarArea(
+                                            theme, ujian, dataSoal),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  height: 25,
+                                ),
+                                _buildAnswerBottomArea(
+                                  theme,
+                                  isDesktop,
+                                  dataSoal[controller.currentIndex.value],
+                                  currentIndex,
+                                  total,
+                                ),
+                              ],
+                            ),
+                          )
+                        : Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: isDesktop ? 16 : 0,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: isDesktop ? 8 : 0,
+                                        horizontal: 16,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Obx(
+                                            () => Text(
+                                              "${controller.currentIndex.value + 1} dari ${ExamConfirmationController.dataUjian.value?.data?.jumlahSoal ?? "0"} Soal",
+                                              style: theme.textTheme.titleMedium
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 8, horizontal: 4),
+                                            child: ElevatedButton.icon(
+                                              onPressed:
+                                                  controller.semuaTerjawab()
+                                                      ? () {
+                                                          controller
+                                                              .confirmEndExam();
+                                                        }
+                                                      : null,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    Colors.green.shade700,
+                                                foregroundColor: Colors.white,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 14),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                ),
+                                                elevation: 0,
+                                              ),
+                                              icon: const Icon(
+                                                  Icons.check_circle_outline,
+                                                  size: 20),
+                                              label: const Text(
+                                                "Akhiri Ujian",
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(height: isDesktop ? 16 : 0),
+                                    Padding(
+                                      padding: EdgeInsets.fromLTRB(
+                                          16, 0, 16, isDesktop ? 4 : 2),
+                                      child: Scrollbar(
                                         controller: controller.soalController,
-                                        scrollDirection: Axis.horizontal,
-                                        child: Padding(
-                                          padding: EdgeInsets.only(
-                                              bottom: isDesktop ? 20 : 10),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.start,
-                                            children: List.generate(
-                                                dataSoal.length, (index) {
-                                              return Padding(
-                                                padding: const EdgeInsets.only(
-                                                    right: 8),
-                                                child: Obx(() {
-                                                  if (controller
-                                                          .itemKeys.length <
-                                                      controller
-                                                          .dataSoal.length) {
-                                                    controller.itemKeys
-                                                        .add(GlobalKey());
-                                                  }
-                                                  final soal = controller
-                                                      .dataSoal[index];
-                                                  final kodeSoal =
-                                                      soal?.kodeSoal ?? "";
+                                        thumbVisibility: true,
+                                        child: SingleChildScrollView(
+                                          clipBehavior: Clip.none,
+                                          controller: controller.soalController,
+                                          scrollDirection: Axis.horizontal,
+                                          child: Padding(
+                                            padding: EdgeInsets.only(
+                                                bottom: isDesktop ? 20 : 10),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.start,
+                                              children:
+                                                  List.generate(total, (index) {
+                                                return Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                          right: 8),
+                                                  child: Obx(() {
+                                                    if (controller
+                                                            .itemKeys.length <
+                                                        total) {
+                                                      controller.itemKeys
+                                                          .add(GlobalKey());
+                                                    }
+                                                    final soal = controller
+                                                        .dataSoal[index];
+                                                    final kodeSoal =
+                                                        soal?.kodeSoal ?? "";
 
-                                                  final currentAnswer =
-                                                      controller.jawabanPerSoal[
-                                                          kodeSoal];
-                                                  final isAnswered =
-                                                      currentAnswer != null &&
-                                                          currentAnswer
-                                                              .isNotEmpty;
+                                                    final currentAnswer =
+                                                        controller
+                                                                .jawabanPerSoal[
+                                                            kodeSoal];
+                                                    final isAnswered =
+                                                        currentAnswer != null &&
+                                                            currentAnswer
+                                                                .isNotEmpty;
 
-                                                  final isRagu =
-                                                      controller.raguPerSoal[
-                                                              kodeSoal] ??
-                                                          false;
+                                                    final isRagu =
+                                                        controller.raguPerSoal[
+                                                                kodeSoal] ??
+                                                            false;
 
-                                                  final isCurrent = controller
-                                                          .currentIndex.value ==
-                                                      index;
+                                                    final isCurrent = controller
+                                                            .currentIndex
+                                                            .value ==
+                                                        index;
 
-                                                  Color bgColor;
-                                                  Color? textColor;
-                                                  String tooltip;
-                                                  Color borderColor =
-                                                      Colors.transparent;
-                                                  double borderWidth = 0;
+                                                    Color bgColor;
+                                                    Color? textColor;
+                                                    String tooltip;
+                                                    Color borderColor =
+                                                        Colors.transparent;
+                                                    double borderWidth = 0;
 
-                                                  if (isCurrent) {
-                                                    bgColor = AppColors
-                                                        .primaryBlue
-                                                        .withOpacity(0.1);
-                                                    textColor =
-                                                        AppColors.primaryBlue;
-                                                    borderColor =
-                                                        AppColors.primaryBlue;
-                                                    borderWidth = 2;
-                                                    tooltip =
-                                                        "Sedang dikerjakan";
-                                                  } else if (isRagu) {
-                                                    tooltip = "Ragu-ragu";
-                                                    bgColor = Colors.amber[900]!
-                                                        .withOpacity(0.4);
-                                                    textColor =
-                                                        Colors.amber[900]!;
-                                                    borderColor =
-                                                        Colors.amber[900]!;
-                                                    borderWidth = 1.5;
-                                                  } else if (isAnswered) {
-                                                    tooltip = "Dijawab";
-                                                    bgColor =
-                                                        AppColors.primaryBlue;
-                                                    textColor = Colors.white;
-                                                  } else {
-                                                    tooltip = "Kosong";
-                                                    bgColor = Colors.grey
-                                                        .withOpacity(0.1);
-                                                    textColor = Colors.grey;
-                                                    borderColor = Colors.grey
-                                                        .withOpacity(0.6);
-                                                    borderWidth = 1;
-                                                  }
+                                                    if (isCurrent) {
+                                                      bgColor = AppColors
+                                                          .primaryBlue
+                                                          .withOpacity(0.1);
+                                                      textColor =
+                                                          AppColors.primaryBlue;
+                                                      borderColor =
+                                                          AppColors.primaryBlue;
+                                                      borderWidth = 2;
+                                                      tooltip =
+                                                          "Sedang dikerjakan";
+                                                    } else if (isRagu) {
+                                                      tooltip = "Ragu-ragu";
+                                                      bgColor = Colors
+                                                          .amber[900]!
+                                                          .withOpacity(0.4);
+                                                      textColor =
+                                                          Colors.amber[900]!;
+                                                      borderColor =
+                                                          Colors.amber[900]!;
+                                                      borderWidth = 1.5;
+                                                    } else if (isAnswered) {
+                                                      tooltip = "Dijawab";
+                                                      bgColor =
+                                                          AppColors.primaryBlue;
+                                                      textColor = Colors.white;
+                                                    } else {
+                                                      tooltip = "Kosong";
+                                                      bgColor = Colors.grey
+                                                          .withOpacity(0.1);
+                                                      textColor = Colors.grey;
+                                                      borderColor = Colors.grey
+                                                          .withOpacity(0.6);
+                                                      borderWidth = 1;
+                                                    }
 
-                                                  return MouseRegion(
-                                                    cursor: SystemMouseCursors
-                                                        .click,
-                                                    child: Tooltip(
-                                                      message: tooltip,
-                                                      child: Material(
-                                                        color:
-                                                            Colors.transparent,
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(8),
-                                                        child: InkWell(
+                                                    return MouseRegion(
+                                                      cursor: SystemMouseCursors
+                                                          .click,
+                                                      child: Tooltip(
+                                                        message: tooltip,
+                                                        child: Material(
+                                                          color: Colors
+                                                              .transparent,
                                                           borderRadius:
                                                               BorderRadius
                                                                   .circular(8),
-                                                          onTap: () {
-                                                            controller
-                                                                .currentIndex
-                                                                .value = index;
-                                                            controller
-                                                                .loadSelectedAnswer();
-                                                          },
-                                                          child: Ink(
-                                                            key: controller
-                                                                    .itemKeys[
-                                                                index],
-                                                            width: 45,
-                                                            height: 45,
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              color: bgColor,
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          8),
-                                                              border:
-                                                                  Border.all(
-                                                                color:
-                                                                    borderColor,
-                                                                width:
-                                                                    borderWidth,
-                                                              ),
-                                                            ),
-                                                            child: Center(
-                                                              child: Text(
-                                                                '${index + 1}',
-                                                                style:
-                                                                    TextStyle(
+                                                          child: InkWell(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        8),
+                                                            onTap: () {
+                                                              controller
+                                                                  .currentIndex
+                                                                  .value = index;
+                                                              controller
+                                                                  .loadSelectedAnswer();
+                                                            },
+                                                            child: Ink(
+                                                              key: controller
+                                                                      .itemKeys[
+                                                                  index],
+                                                              width: 45,
+                                                              height: 45,
+                                                              decoration:
+                                                                  BoxDecoration(
+                                                                color: bgColor,
+                                                                borderRadius:
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                            8),
+                                                                border:
+                                                                    Border.all(
                                                                   color:
-                                                                      textColor,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
+                                                                      borderColor,
+                                                                  width:
+                                                                      borderWidth,
+                                                                ),
+                                                              ),
+                                                              child: Center(
+                                                                child: Text(
+                                                                  '${index + 1}',
+                                                                  style:
+                                                                      TextStyle(
+                                                                    color:
+                                                                        textColor,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                  ),
                                                                 ),
                                                               ),
                                                             ),
                                                           ),
                                                         ),
                                                       ),
-                                                    ),
-                                                  );
-                                                }),
-                                              );
-                                            }),
+                                                    );
+                                                  }),
+                                                );
+                                              }),
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  SizedBox(height: isDesktop ? 16 : 8),
-                                ],
-                              ),
-                              Expanded(
-                                child: Scrollbar(
-                                  thumbVisibility: true,
-                                  controller: roomScroll,
-                                  child: SingleChildScrollView(
+                                    SizedBox(height: isDesktop ? 16 : 8),
+                                  ],
+                                ),
+                                Expanded(
+                                  child: Scrollbar(
+                                    thumbVisibility: true,
                                     controller: roomScroll,
-                                    child: Column(
-                                      children: [
-                                        _buildQuestionArea(
-                                            theme,
-                                            isDesktop,
-                                            dataSoal[
-                                                controller.currentIndex.value]),
-                                      ],
+                                    child: SingleChildScrollView(
+                                      controller: roomScroll,
+                                      child: Column(
+                                        children: [
+                                          _buildQuestionArea(
+                                              theme,
+                                              isDesktop,
+                                              dataSoal[controller
+                                                  .currentIndex.value]),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                ),
-                if (!isDesktop)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Column(
-                      children: [
-                        _buildAnswerBottomArea(
-                            theme,
-                            isDesktop,
-                            dataSoal[controller.currentIndex.value],
-                            currentIndex,
-                            total),
-                        SizedBox(height: 5),
-                        Obx(() {
-                          final isLast =
-                              controller.currentIndex.value == total - 1;
-
-                          return ElevatedButton.icon(
-                            iconAlignment: IconAlignment.end,
-                            onPressed: isLast ||
-                                    controller.selectedAnswer.isEmpty ||
-                                    (controller.selectedAnswer.isEmpty &&
-                                        controller.isMarkedRagu.value) ||
-                                    ExamRoomController.isLoading.value
-                                ? null
-                                : () {
-                                    controller.nextQuestion();
-                                  },
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: Size.fromHeight(isDesktop ? 48 : 40),
+                              ],
                             ),
-                            label: ExamRoomController.isLoading.value
-                                ? Text("Menyimpan jawaban...")
-                                : Text("Soal Berikutnya"),
-                            icon: ExamRoomController.isLoading.value
-                                ? const SizedBox(
-                                    height: 15,
-                                    width: 15,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : Icon(
-                                    Icons.arrow_forward_ios_sharp,
-                                    size: 16,
-                                  ),
-                          );
-                        }),
-                      ],
-                    ),
+                          ),
                   ),
-                AppStatusBar(role: "Siswa", fromUjian: true),
-              ],
-            ),
+                  if (!isDesktop)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: Column(
+                        children: [
+                          _buildAnswerBottomArea(
+                              theme,
+                              isDesktop,
+                              dataSoal[controller.currentIndex.value],
+                              currentIndex,
+                              total),
+                          SizedBox(height: 5),
+                          Obx(() {
+                            final isLast =
+                                controller.currentIndex.value == total - 1;
+
+                            return ElevatedButton.icon(
+                              iconAlignment: IconAlignment.end,
+                              onPressed: isLast ||
+                                      controller.selectedAnswer.isEmpty ||
+                                      (controller.selectedAnswer.isEmpty &&
+                                          controller.isMarkedRagu.value) ||
+                                      ExamRoomController.isActionLoading.value
+                                  ? null
+                                  : () {
+                                      controller.nextQuestion();
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                minimumSize:
+                                    Size.fromHeight(isDesktop ? 48 : 40),
+                              ),
+                              label: ExamRoomController.isActionLoading.value
+                                  ? Text("Menyimpan jawaban...")
+                                  : Text("Soal Berikutnya"),
+                              icon: ExamRoomController.isActionLoading.value
+                                  ? const SizedBox(
+                                      height: 15,
+                                      width: 15,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Icon(
+                                      Icons.arrow_forward_ios_sharp,
+                                      size: 16,
+                                    ),
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  AppStatusBar(role: "Siswa", fromUjian: true),
+                ],
+              );
+            },
           ),
         );
       },
@@ -755,8 +862,8 @@ class ExamRoomView extends GetView<ExamRoomController> {
 
   Widget _sideBarArea(
     ThemeData theme,
-    UserUjian? ujian,
-    RxList<UjianDetilSoal?> dataSoal,
+    DataUjianModel? ujian,
+    RxList<Soal?> dataSoal,
   ) {
     return Container(
       width: Get.width,
@@ -814,7 +921,7 @@ class ExamRoomView extends GetView<ExamRoomController> {
           ),
           const SizedBox(height: 16),
           Text(
-            "${controller.currentIndex.value + 1} dari ${LoginController.dataUjian.value?.jumlahSoal ?? "0"} Soal",
+            "${controller.currentIndex.value + 1} dari ${ExamConfirmationController.dataUjian.value?.data?.jumlahSoal ?? "0"} Soal",
             style: theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -941,11 +1048,10 @@ class ExamRoomView extends GetView<ExamRoomController> {
     );
   }
 
-  Widget _buildQuestionArea(
-      ThemeData theme, bool isDesktop, UjianDetilSoal? data) {
-    final src = data?.soal?.sourceAudioVideo ?? "";
-    final name = data?.soal?.namaFile ?? "";
-    final soal = data?.soal;
+  Widget _buildQuestionArea(ThemeData theme, bool isDesktop, Soal? data) {
+    final src = data?.sourceAudioVideo ?? "";
+    final name = data?.namaFile ?? "";
+    final soal = data;
     if (soal == null) return const SizedBox();
 
     final int jumlahPilihan = int.tryParse(soal.jumlahPilihan.toString()) ?? 5;
@@ -987,7 +1093,7 @@ class ExamRoomView extends GetView<ExamRoomController> {
       }
     }
 
-    final rawHtml = soal.uraianSoal;
+    final rawHtml = soal.uraianSoal ?? "";
     final document = HtmlParser.parseHTML(rawHtml);
     final bodyContent = document.innerHtml;
 
@@ -1135,7 +1241,7 @@ class ExamRoomView extends GetView<ExamRoomController> {
   Widget _buildAnswerBottomArea(
     ThemeData theme,
     bool isDesktop,
-    UjianDetilSoal? data,
+    Soal? data,
     int currentIndex,
     int total,
   ) {
@@ -1355,17 +1461,17 @@ document.addEventListener('contextmenu', event => event.preventDefault());
   Widget _buildAnswerArea(
     ThemeData theme,
     bool isDesktop,
-    UjianDetilSoal? data,
+    Soal? data,
     int currentIndex,
     int total,
   ) {
     final opsi = ['A', 'B', 'C', 'D', 'E'];
     final jawabanMap = <String, String>{
-      'A': data?.soal?.jawabanA ?? '',
-      'B': data?.soal?.jawabanB ?? '',
-      'C': data?.soal?.jawabanC ?? '',
-      'D': data?.soal?.jawabanD ?? '',
-      'E': data?.soal?.jawabanE ?? '',
+      'A': data?.jawabanA ?? '',
+      'B': data?.jawabanB ?? '',
+      'C': data?.jawabanC ?? '',
+      'D': data?.jawabanD ?? '',
+      'E': data?.jawabanE ?? '',
     };
 
     return Padding(
@@ -1645,6 +1751,100 @@ class _AudioPlayerWidgetState extends State<_AudioPlayerWidget> {
       ),
     );
   }
+}
+
+Widget _buildShimmerSoal() {
+  return Shimmer.fromColors(
+    baseColor: Colors.grey.shade300,
+    highlightColor: Colors.grey.shade100,
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 140,
+            height: 20,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: List.generate(5, (i) {
+              return Container(
+                margin: const EdgeInsets.only(right: 12),
+                width: 55,
+                height: 45,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 30),
+          Container(
+            width: 120,
+            height: 20,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Column(
+            children: List.generate(3, (i) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Container(
+                  width: double.infinity,
+                  height: 14,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 20),
+          Column(
+            children: List.generate(5, (i) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 14),
+                width: double.infinity,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 30),
+          Container(
+            height: 45,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            height: 48,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _VideoPlayerWidget extends StatefulWidget {

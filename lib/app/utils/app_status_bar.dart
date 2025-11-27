@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:aplikasi_cbt/app/controllers/volume_controller.dart';
-import 'package:aplikasi_cbt/app/services/database_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -28,19 +27,46 @@ class AppStatusBar extends StatefulWidget {
 
 class _AppStatusBarState extends State<AppStatusBar> {
   late Timer _timer;
-  final RxString timeString = "".obs;
-  final RxString dateString = "".obs;
+  final RxString timeString = AllMaterial.timeServer;
+  final RxString dateString = AllMaterial.dateServer;
 
   final RxDouble volume = 0.0.obs;
   final volumeController = VolumeController.instance;
   final nativeVolumeController = Get.find<VolumeNativeController>();
-  final dbService = Get.find<DatabaseService>();
+
+  final RxBool isTimeReady = false.obs;
+
+  @override
+  // ignore: override_on_non_overriding_member
+  late DateTime _currentServerTime;
+
   @override
   void initState() {
     super.initState();
 
-    _updateTime();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateTime());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      timeString.value = "";
+      dateString.value = "";
+      isTimeReady.value = false;
+    });
+
+    _currentServerTime = _parseServerDateTime();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _currentServerTime = _parseServerDateTime();
+      _updateDisplayedTime();
+      isTimeReady.value = true;
+    });
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!isTimeReady.value) return;
+
+      _currentServerTime = _currentServerTime.add(const Duration(seconds: 1));
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _updateDisplayedTime();
+      });
+    });
 
     if (Platform.isAndroid || Platform.isIOS) {
       volumeController.addListener((v) => volume.value = v);
@@ -57,20 +83,28 @@ class _AppStatusBarState extends State<AppStatusBar> {
     }
   }
 
-  void _updateTime() async {
-    final waktuServerResult = await dbService.query(
-      "SELECT DATE_FORMAT(SYSDATE(), '%Y-%m-%d %H:%i:%s') AS serverTime",
-    );
+  DateTime _parseServerDateTime() {
+    final dateStr = AllMaterial.dateServer.value;
+    final timeStr = AllMaterial.timeServer.value;
 
-    DateTime now;
-    if (waktuServerResult.isNotEmpty) {
-      final serverTimeStr = waktuServerResult.first['serverTime'] as String;
-      now = DateTime.parse(serverTimeStr);
-    } else {
-      now = DateTime.now();
+    if (!AllMaterial.isServerTimeLoaded.value ||
+        dateStr.isEmpty ||
+        timeStr.isEmpty) {
+      return DateTime.now();
     }
-    timeString.value = DateFormat("HH:mm").format(now);
-    dateString.value = DateFormat("dd/MM/yyyy").format(now);
+
+    try {
+      return DateTime.parse("$dateStr $timeStr");
+    } catch (e) {
+      return DateTime.now();
+    }
+  }
+
+  void _updateDisplayedTime() {
+    timeString.value = DateFormat("HH:mm").format(_currentServerTime);
+    dateString.value = DateFormat("dd/MM/yyyy").format(_currentServerTime);
+
+    AllMaterial.currentServerDateTime.value = _currentServerTime;
   }
 
   @override
@@ -239,20 +273,24 @@ class _AppStatusBarState extends State<AppStatusBar> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Obx(() => Text(
-                          timeString.value,
-                          style: TextStyle(
-                            color: Colors.grey.shade300,
-                            fontSize: baseFont,
-                          ),
-                        )),
-                    Obx(() => Text(
-                          dateString.value,
-                          style: TextStyle(
-                            color: Colors.grey.shade300,
-                            fontSize: baseFont,
-                          ),
-                        )),
+                    Obx(
+                      () => Text(
+                        isTimeReady.value ? timeString.value : "",
+                        style: TextStyle(
+                          color: Colors.grey.shade300,
+                          fontSize: baseFont,
+                        ),
+                      ),
+                    ),
+                    Obx(
+                      () => Text(
+                        isTimeReady.value ? dateString.value : "",
+                        style: TextStyle(
+                          color: Colors.grey.shade300,
+                          fontSize: baseFont,
+                        ),
+                      ),
+                    )
                   ],
                 ),
               ],

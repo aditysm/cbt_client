@@ -1,31 +1,33 @@
-import 'package:aplikasi_cbt/app/modules/login/controllers/login_controller.dart';
-import 'package:aplikasi_cbt/app/services/database_service.dart';
+import 'package:aplikasi_cbt/app/data/api/api_url.dart';
+import 'package:aplikasi_cbt/app/services/http_service.dart';
+import 'package:aplikasi_cbt/app/utils/app_material.dart';
 import 'package:aplikasi_cbt/app/utils/toast_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class FeedbackController extends GetxController {
   var komentarC = TextEditingController();
-  final dbService = Get.find<DatabaseService>();
-  Future<void> simpanKomentar() async {
-    try {
-      final res = await dbService.execute(
-        """
-      INSERT INTO komentar (NIS, KodeUjian, Komentar)
-      VALUES (?, ?, ?)
-      """,
-        [
-          LoginController.dataUjian.value?.nis,
-          LoginController.dataUjian.value?.kodeUjian,
-          komentarC.text.trim()
-        ],
-      );
+  var isLoading = false.obs;
 
-      ToastService.show("Feedback berhasil dikirim. Terima kasih!");
-      komentarC.clear();
-      print("Komentar berhasil disimpan: $res");
+  Future<void> simpanKomentar() async {
+    isLoading.value = true;
+    try {
+      await HttpService.request(
+          url: ApiUrl.komentarUrl,
+          type: RequestType.post,
+          body: {"komentar": komentarC.text.trim()});
     } catch (e) {
-      print("Gagal menyimpan komentar: $e");
+      print(e.toString());
+      ToastService.show(AllMaterial.getErrorMessageFromException(e.toString()));
     }
+
+    isLoading.value = false;
+    update();
+  }
+
+  @override
+  void onInit() {
+    AllMaterial.bindLoadingDialog(isLoading);
+    super.onInit();
   }
 }
